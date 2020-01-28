@@ -7,8 +7,6 @@ OBJS += mdriver.o
 OBJS += mm.o
 LIBS += -lm -lrt
 
-MCHECK = ./macro-check.pl
-
 CC = gcc
 CFLAGS += -MMD -MP # dependency tracking flags
 CFLAGS += -I./
@@ -25,7 +23,10 @@ debug: CFLAGS += -g -O0 -D_GLIBC_DEBUG # debug flags
 debug: clean $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(MCHECK) -f mm.c
+	@chmod +x *.pl
+	@sed -i -e 's/\r$$//g' *.pl # dos to unix
+	@sed -i -e 's/\r/\n/g' *.pl # mac to unix
+	-@./macro-check.pl -f mm.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
@@ -39,4 +40,6 @@ clean:
 
 test:
 	@chmod +x *.pl
+	@sed -i -e 's/\r$$//g' *.pl # dos to unix
+	@sed -i -e 's/\r/\n/g' *.pl # mac to unix
 	-@./driver.pl

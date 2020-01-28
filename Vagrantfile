@@ -17,7 +17,7 @@ Vagrant.configure("2") do |config|
   # Setup default packages and configuration files
   config.vm.provision "shell", inline: <<-SHELL
     apt-get update
-    apt-get install -y build-essential gcc-multilib emacs htop gdb
+    apt-get install -y build-essential gcc-multilib emacs htop gdb git
     for i in `ls /home`; do echo 'cd /vagrant' >>/home/${i}/.bashrc; done
     for i in `ls /home`; do curl http://www.cse.psu.edu/~tuz68/.emacs 2>/dev/null >/home/${i}/.emacs; chown ${i}:${i} /home/${i}/.emacs; done
     for i in `ls /home`; do curl https://raw.githubusercontent.com/mitthu/cmpsc473_spring18/master/base/dot_vimrc 2>/dev/null >/home/${i}/.vimrc; chown ${i}:${i} /home/${i}/.vimrc; done
