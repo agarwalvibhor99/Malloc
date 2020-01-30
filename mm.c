@@ -264,6 +264,64 @@ void free(void* ptr)
 void* realloc(void* oldptr, size_t size)
 {
     /* IMPLEMENT THIS */
+    //size_t extendsize;
+    if(oldptr == NULL){         /* This call is equivalent to malloc */
+        printf("Calling Malloc");
+        malloc(size);
+    }
+    if(size == 0){
+        printf("Calling Free");
+        free(oldptr);
+    }
+    size_t old_size = get_size(HDRP(oldptr));   // Storing the initial ptr size
+    size_t extra_size = size - old_size;        // Finding the extra size required
+    oldptr = NEXT_BKLP(oldptr);                 // Sending pointer to next data to find if size is big enough to store data and free
+    size_t adjacent_size = get_size(HDRP(oldptr));  //Finding size of adjacent block to check if we can realloc there itself
+    if(adjacent_size >= extra_size && !get_alloc(oldptr)){
+        printf("Inside if");
+        oldptr = PREV_BLKP(oldptr);
+        put(HDRP(oldptr), pack(size, 1));
+        put(FTRP(oldptr), pack(size, 1));  
+        if(size == 2*old_size){
+            memcpy(NEXT_BKLP(oldptr), oldptr, old_size);
+        }
+    }
+    /*else{
+        void* iterator = oldptr;
+        if((iterator = find_fits(size)) != NULL){
+            memcpy(iterator, oldptr, old_size);
+            if(size == 2*old_size){
+                memcpy(iterator+old_size, oldptr, old_size);
+            }
+            free(oldptr);
+            return iterator;
+        }   
+        extendsize = max(size, CHUNKSIZE);
+        if((iterator = extended_heap(extendsize/WSIZE)) == NULL)
+            return NULL;
+
+        memcpy(iterator, oldptr, old_size);
+        if(size == 2*old_size){
+            memcpy(iterator+old_size, oldptr, old_size);
+        }
+        free(oldptr);
+        return iterator;
+    }*/
+
+    // // if((bp = find_fits(size-oldsize)) != NULL){
+    // //     place(oldptr, size-oldsize);
+    // //     reurn bp;
+    // // }
+    // size_t asize;
+
+    // if(size <= DSIZE)
+    //     asize = 2*DSIZE;
+    // else
+    //     asize = align(size) + DSIZE;
+    // if((bp = find_fits(size-old_size)) != NULL){
+    //     place(bp, size-old_size);
+    //     return bp;
+    // }
     return NULL;
 }
 
