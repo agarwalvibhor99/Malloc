@@ -265,27 +265,92 @@ void* realloc(void* oldptr, size_t size)
 {
     /* IMPLEMENT THIS */
     //size_t extendsize;
+    size_t asize;
     if(oldptr == NULL){         /* This call is equivalent to malloc */
-        printf("Calling Malloc");
-        malloc(size);
+       // printf("Calling Malloc");
+        return malloc(size);
     }
     if(size == 0){
-        printf("Calling Free");
+        //printf("Calling Free");
         free(oldptr);
+        return NULL;
     }
-    size_t old_size = get_size(HDRP(oldptr));   // Storing the initial ptr size
-    size_t extra_size = size - old_size;        // Finding the extra size required
-    oldptr = NEXT_BKLP(oldptr);                 // Sending pointer to next data to find if size is big enough to store data and free
-    size_t adjacent_size = get_size(HDRP(oldptr));  //Finding size of adjacent block to check if we can realloc there itself
-    if(adjacent_size >= extra_size && !get_alloc(oldptr)){
-        printf("Inside if");
-        oldptr = PREV_BLKP(oldptr);
-        put(HDRP(oldptr), pack(size, 1));
-        put(FTRP(oldptr), pack(size, 1));  
-        if(size == 2*old_size){
-            memcpy(NEXT_BKLP(oldptr), oldptr, old_size);
-        }
+    size_t old_size = get_size(HDRP(oldptr)) - 2*WSIZE;   // Storing the initial ptr size
+    if(size == old_size){
+        return oldptr;
     }
+    else if (size<old_size){                   // If new size is less than the old size
+        
+        if(size <= DSIZE)
+            asize = 2*DSIZE;
+        else
+            asize = align(size) + DSIZE;
+
+        place(oldptr, asize);
+        return oldptr;
+    }
+    // printf("%lu", (get_alloc(HDRP(oldptr))));
+    // void *newPointer = malloc(size);
+    // if(newPointer){
+    //     memcpy(newPointer, oldptr, size);
+    //     free(oldptr);
+    //     return newPointer;
+    //}
+
+
+    
+    // else if( !get_alloc(PREV_BLKP(HDRP(oldptr))) && (get_size(PREV_BLKP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){
+    //     printf("On adjacent left");
+    //     if(size <= DSIZE)
+    //         asize = 2*DSIZE;
+    //     else
+    //         asize = align(size) + DSIZE;
+    //     void *newPointer = PREV_BLKP(oldptr);
+    //     place(PREV_BLKP(oldptr), asize);
+    //     memcpy(PREV_BLKP(oldptr), oldptr, get_size(HDRP(oldptr)) - 16);
+    //     return newPointer;
+
+    // }
+    // else if( !get_alloc(NEXT_BKLP(HDRP(oldptr))) && (get_size(NEXT_BKLP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){
+    //     printf("On adjacent right");
+    //     if(size <= DSIZE)
+    //         asize = 2*DSIZE;
+    //     else
+    //         asize = align(size) + DSIZE;
+    //     void *newPointer = NEXT_BKLP(oldptr);
+    //     place(newPointer, asize);
+    //     memcpy(newPointer, oldptr, get_size(HDRP(oldptr)) - 16);
+    //     return newPointer;
+
+    // }
+   
+    void *newPointer = malloc(size);
+    if(newPointer){
+        memcpy(newPointer, oldptr, size);            
+        free(oldptr);
+        return newPointer;
+     }
+    
+    
+
+    // size_t extra_size = size - old_size;        // Finding the extra size required
+    // oldptr = NEXT_BKLP(oldptr);                 // Sending pointer to next data to find if size is big enough to store data and free
+    // size_t adjacent_size = get_size(HDRP(oldptr));  //Finding size of adjacent block to check if we can realloc there itself
+    // if(adjacent_size >= extra_size && !get_alloc(oldptr)){ // not setting next data 0 if space still left
+    //     //printf("Inside if");
+    //     oldptr = PREV_BLKP(oldptr);
+    //     put(HDRP(oldptr), pack(size, 1));
+    //     put(FTRP(oldptr), pack(size, 1));  
+    //     if(size == 2*old_size){
+    //         memcpy(NEXT_BKLP(oldptr), oldptr, old_size);
+    //     }
+    //     if((adjacent_size - size) >= (2*DSIZE)){
+    //         oldptr = NEXT_BKLP(oldptr);
+    //         put(HDRP(oldptr), pack(adjacent_size-extra_size, 0));
+    //         put(FTRP(oldptr), pack(adjacent_size-extra_size, 0));
+    //         return(PREV_BLKP(oldptr));
+    //     }
+    // }
     /*else{
         void* iterator = oldptr;
         if((iterator = find_fits(size)) != NULL){
