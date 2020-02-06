@@ -64,50 +64,76 @@ static void* heap_listp = NULL;
 static void *coalesce(void *bp);
 static void place(void *bp, size_t asize);
 
-/* Static Inline Functions */
+/* Creating struct for Doubly Linked List : Not yet implemented*/
+struct Node{
+    struct Node *prev;
+    struct Node *next;
+};
+
+/* Static Inline Functions from Computer Systems A Programmer's Perspective Book*/
+
+/* was defined as Macros in the book changed into a static inline function*/
 
 static inline unsigned long max(long x, long y){
     return ((x) > (y)? (x) : (y));
 }
 
+/* This function packs/sets together the size and the allocation bit */
+
 static inline unsigned long pack(unsigned long size, unsigned long alloc){
     return ((size) | (alloc));
 }
+
+/* reads and returns the word referenced by argument p */
 
 static inline size_t get(const void* p){
    return (*(unsigned long *)(p));
 }
 
+/* stores val in the word pointed at by argument p */
+
 static inline void put(const void* p, unsigned long val){
     (*(unsigned long *)(p) = (val));
 }
+
+/* This function returns the size from header */
 
 static inline unsigned long get_size(const void* p){
     return (get(p) & ~0xF); 
 }
 
+/* This function returns the allocation bit from header */
+
 static inline unsigned long get_alloc(const void* p){
     return (get(p) & 0x1);
 }
+
+/* This function takes the pointer to the header */
 
 static inline char* HDRP(void* bp){
     return ((char *)(bp) - WSIZE);
 }
 
+/* This function takes the pointer to the footer */
+
 static inline char* FTRP(void* bp){
     return ((char *)(bp) + get_size(HDRP(bp)) - DSIZE);
 }
 
+/* This function takes pointer to the point where the next data starts */
+
 static inline char* NEXT_BKLP(void* bp){
     return ((char *)(bp) + get_size(((char *)(bp) - WSIZE)));
 }
+
+/* This function takes pointer to the point where the previous data starts */
 
 static inline char* PREV_BLKP(void* bp){
     return ((char *)(bp) - get_size(((char *)(bp) - DSIZE)));
 }
 
 /*
- * Additional Functions Reference Textbook
+ * Additional Functions Reference Textbook Computer Systems A Programmer's Perspective
  */
 static void *extended_heap(size_t words){
     char *bp;
@@ -150,7 +176,7 @@ static void *coalesce(void *bp){
     bp = PREV_BLKP(bp);
     }
 
-    else{
+    else{                                   //Case 4
         size += get_size(HDRP(PREV_BLKP(bp))) + get_size(FTRP(NEXT_BKLP(bp)));
         put(HDRP(PREV_BLKP(bp)), pack(size, 0));
         put(FTRP(NEXT_BKLP(bp)), pack(size, 0));
@@ -158,6 +184,8 @@ static void *coalesce(void *bp){
     }
     return bp;
 }
+
+/* Function Reference Textbook Computer Systems A Programmer's Perspective */
 
 static void *find_fits(size_t asize){
     /* First-fit search */
@@ -170,6 +198,8 @@ static void *find_fits(size_t asize){
     return NULL; /* No fit */
 //#endif 
 }
+
+/* Function Reference Textbook Computer Systems A Programmer's Perspective */
 
 static void place(void *bp, size_t asize){
     size_t csize = get_size(HDRP(bp));
@@ -197,6 +227,9 @@ static size_t align(size_t x)
 /*
  * Initialize: returns false on error, true on success.
  */
+
+/* Function Reference Textbook Computer Systems A Programmer's Perspective */
+
 bool mm_init(void)
 {
     /* IMPLEMENT THIS */
@@ -206,7 +239,7 @@ bool mm_init(void)
     put(heap_listp + (1*WSIZE), pack(DSIZE, 1));
     put(heap_listp + (2*WSIZE), pack(DSIZE, 1));
     put(heap_listp + (3*WSIZE), pack(0,1));
-    heap_listp += (3*WSIZE); //points at the first header
+    heap_listp += (3*WSIZE); //This make heap_listp points at the first header
 
    if(extended_heap(CHUNKSIZE/WSIZE) == NULL)
         return false;
@@ -216,6 +249,9 @@ bool mm_init(void)
 /*
  * malloc
  */
+
+/* Functions Reference Textbook Computer Systems A Programmer's Perspective */
+
 void* malloc(size_t size)
 {
     size_t asize;
@@ -247,6 +283,9 @@ void* malloc(size_t size)
 /*
  * free
  */
+
+/* Functions Reference Textbook Computer Systems A Programmer's Perspective */
+
 void free(void* ptr)
 {
     /* IMPLEMENT THIS */
@@ -261,6 +300,8 @@ void free(void* ptr)
 /*
  * realloc
  */
+
+/* Implemented on the basis of the given pdf */
 void* realloc(void* oldptr, size_t size)
 {
     /* IMPLEMENT THIS */
@@ -289,41 +330,33 @@ void* realloc(void* oldptr, size_t size)
         place(oldptr, asize);
         return oldptr;
     }
-    // printf("%lu", (get_alloc(HDRP(oldptr))));
-    // void *newPointer = malloc(size);
-    // if(newPointer){
-    //     memcpy(newPointer, oldptr, size);
-    //     free(oldptr);
-    //     return newPointer;
-    //}
 
+/*    
+     else if( !get_alloc(PREV_BLKP(HDRP(oldptr))) && (get_size(PREV_BLKP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){
+         printf("On adjacent left");
+         if(size <= DSIZE)
+             asize = 2*DSIZE;
+         else
+             asize = align(size) + DSIZE;
+         void *newPointer = PREV_BLKP(oldptr);
+         place(PREV_BLKP(oldptr), asize);
+         memcpy(PREV_BLKP(oldptr), oldptr, get_size(HDRP(oldptr)) - 16);
+         return newPointer;
 
-    
-    // else if( !get_alloc(PREV_BLKP(HDRP(oldptr))) && (get_size(PREV_BLKP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){
-    //     printf("On adjacent left");
-    //     if(size <= DSIZE)
-    //         asize = 2*DSIZE;
-    //     else
-    //         asize = align(size) + DSIZE;
-    //     void *newPointer = PREV_BLKP(oldptr);
-    //     place(PREV_BLKP(oldptr), asize);
-    //     memcpy(PREV_BLKP(oldptr), oldptr, get_size(HDRP(oldptr)) - 16);
-    //     return newPointer;
+     }
+     else if( !get_alloc(NEXT_BKLP(HDRP(oldptr))) && (get_size(NEXT_BKLP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){
+         printf("On adjacent right");
+         if(size <= DSIZE)
+             asize = 2*DSIZE;
+         else
+             asize = align(size) + DSIZE;
+         void *newPointer = NEXT_BKLP(oldptr);
+         place(newPointer, asize);
+         memcpy(newPointer, oldptr, get_size(HDRP(oldptr)) - 16);
+         return newPointer;
 
-    // }
-    // else if( !get_alloc(NEXT_BKLP(HDRP(oldptr))) && (get_size(NEXT_BKLP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){
-    //     printf("On adjacent right");
-    //     if(size <= DSIZE)
-    //         asize = 2*DSIZE;
-    //     else
-    //         asize = align(size) + DSIZE;
-    //     void *newPointer = NEXT_BKLP(oldptr);
-    //     place(newPointer, asize);
-    //     memcpy(newPointer, oldptr, get_size(HDRP(oldptr)) - 16);
-    //     return newPointer;
-
-    // }
-   
+     }
+*/   
     void *newPointer = malloc(size);
     if(newPointer){
         memcpy(newPointer, oldptr, size);            
@@ -331,7 +364,7 @@ void* realloc(void* oldptr, size_t size)
         return newPointer;
      }
     
-    
+   /* Old Implications to try realloc */ 
 
     // size_t extra_size = size - old_size;        // Finding the extra size required
     // oldptr = NEXT_BKLP(oldptr);                 // Sending pointer to next data to find if size is big enough to store data and free
