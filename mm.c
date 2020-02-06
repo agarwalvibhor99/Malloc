@@ -154,6 +154,10 @@ static void *extended_heap(size_t words){
     return coalesce(bp);  
 }
 
+/*
+ * Additional Functions Reference Textbook Computer Systems A Programmer's Perspective
+ */
+
 static void *coalesce(void *bp){
     size_t prev_alloc = get_alloc(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = get_alloc(HDRP(NEXT_BKLP(bp)));
