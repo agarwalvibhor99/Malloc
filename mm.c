@@ -14,7 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <stdint.h>
+#include <stdint.h>	
 
 #include "mm.h"
 #include "memlib.h"
@@ -24,7 +24,7 @@
  * uncomment the following line. Be sure not to have debugging enabled
  * in your final submission.
  */
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 /* When debugging is enabled, the underlying functions get called */
@@ -54,21 +54,59 @@
 
 /*
  * Changing WSIZE and DSIZE for 64 bits system. All static Inline functions
- * here are referred textbook which were defined as MACROS
+ * here are referred textbook Computer Systems A Programmer's Perspective which were defined as MACROS
+ * This Implementation referred from Textbook
  */
 
 #define WSIZE       8       /* Word and header/footer size(bytes) */
 #define DSIZE       16       /* Double word size (bytes) */
-#define CHUNKSIZE   (1<<12) /*Extended heap by this amount (bytes) */ 
+#define CHUNKSIZE   (1<<5) /*Extended heap by this amount (bytes) */ 
 static void* heap_listp = NULL;
 static void *coalesce(void *bp);
 static void place(void *bp, size_t asize);
-
 /* Creating struct for Doubly Linked List : Not yet implemented*/
-struct Node{
+typedef struct Node{
+    //unsigned int data;
     struct Node *prev;
     struct Node *next;
-};
+}Node;
+Node* head = NULL;
+void push(struct Node** head, void *bp){                //Function push to add the address of free blocks to the doubley linked list 
+    struct Node* newNode = (struct Node*)bp;            // Using bp instead of malloc which gives the address of free blocks
+    newNode->next = (*head);                            //Always adding to the head therefore assigning next of newNode as current head
+    newNode->prev = NULL;                               //Also since adding as first node setting previous of it as NULL
+    if((*head)!= NULL){                                 //Checking if the list isn't empty, to build a connection with the old head setting its prev to newNode as that newNode will become the head now.
+      (*head)->prev = newNode;
+    }
+    *head = newNode;                                    //Since adding always as first element, setting it as new head.\
+}
+
+void deleteNode(Node* del)  
+{  
+    /* Case when the list is empty or the node to be deleted is NULL */
+    if (head == NULL || del == NULL)  
+        return;  
+  
+    /* If node to be deleted is head node */
+    if (head == del)  
+        head = del->next;  
+  
+    //Since removing a node and middle, making sure the doubly linked list still remain connected with following to if conditions
+
+    /* If del is not the last node which we check using its next then making a connection with the next node of it with the previous of del to not break the link*/
+    if (del->next != NULL)  
+        del->next->prev = del->prev;  
+  
+    if (del->prev != NULL)          //This condition to check we aren't deleting the first node as checking if prev isn't NULL
+        del->prev->next = del->next;        //And then linking the node previous to which we are deleting with the node next to we are deleting 
+ 
+    return;  
+}
+/*void delete(struct Node** head){
+    (*head) = (*head)->next;
+
+}*/
+
 
 /* Static Inline Functions from Computer Systems A Programmer's Perspective Book*/
 
@@ -79,7 +117,6 @@ static inline unsigned long max(long x, long y){
 }
 
 /* This function packs/sets together the size and the allocation bit */
-
 static inline unsigned long pack(unsigned long size, unsigned long alloc){
     return ((size) | (alloc));
 }
@@ -144,7 +181,7 @@ static void *extended_heap(size_t words){
     if ((long)(bp = mem_sbrk(size)) == -1)
         return NULL;
 
-    /* Initializew free block header/footer and the epologue header */
+    /* Initialize free block header/footer and the epilogue header */
     put(HDRP(bp), pack(size, 0));
     //printf("%lu\n", *(unsigned long*)(heap_listp));       /* Free block header */
     put(FTRP(bp), pack(size, 0));       /* Free block footer */
@@ -153,34 +190,37 @@ static void *extended_heap(size_t words){
     /* Coalesce if the previous block was free */
     return coalesce(bp);  
 }
-
-/*
- * Additional Functions Reference Textbook Computer Systems A Programmer's Perspective
- */
-
+/* Functions Reference Textbook Computer Systems A Programmer's Perspective */
 static void *coalesce(void *bp){
     size_t prev_alloc = get_alloc(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = get_alloc(HDRP(NEXT_BKLP(bp)));
     size_t size = get_size(HDRP(bp));
-
+  
     if (prev_alloc && next_alloc){  //Case 1 
+        push(&head,bp);                         //Both prev and next block are already allocated, so just adding the new block to linkedlist
         return bp;
     }
 
     else if (prev_alloc && !next_alloc){     //Case 2 
         size += get_size(HDRP(NEXT_BKLP(bp)));
+        deleteNode((Node*)(NEXT_BKLP(bp))); //Removing next free block as will be coalesced with the current one
+        push(&head, bp);                        //Adding the starting position to the linkedlist of free block
         put(HDRP(bp), pack(size, 0));
         put(FTRP(bp), pack(size, 0));
     }
 
     else if (!prev_alloc && next_alloc){    //Case 3 
     size += get_size(HDRP(PREV_BLKP(bp)));
+    //Remove the current free block and add the address of previous block as it is coalesced
+    //remove(bp);
+    //push(&head, PREV_BLKP(bp));                           //No change requried as previous block already free we just need to update it's header
     put(FTRP(bp), pack(size, 0));
     put(HDRP(PREV_BLKP(bp)), pack(size, 0));
     bp = PREV_BLKP(bp);
     }
 
-    else{                                   //Case 4
+    else{                               //Case 4
+    	deleteNode((Node*)(NEXT_BKLP(bp)));                  //Updating header of previous block and deleting the next free block as three coalesced as one single free block
         size += get_size(HDRP(PREV_BLKP(bp))) + get_size(FTRP(NEXT_BKLP(bp)));
         put(HDRP(PREV_BLKP(bp)), pack(size, 0));
         put(FTRP(NEXT_BKLP(bp)), pack(size, 0));
@@ -189,21 +229,32 @@ static void *coalesce(void *bp){
     return bp;
 }
 
-/* Function Reference Textbook Computer Systems A Programmer's Perspective */
-
+/* Functions Reference Textbook Computer Systems A Programmer's Perspective */
 static void *find_fits(size_t asize){
     /* First-fit search */
     void *bp;
-    for(bp = heap_listp + WSIZE; get_size(HDRP(bp))>0; bp = NEXT_BKLP(bp)){
+
+    Node* node = (head);                                    //Iterating through the complete explicit linked list to find appropriate free block using while like we did in pointer lab
+    while (node != NULL) {
+    	bp = node;   
+        if (!get_alloc(HDRP(bp)) && (asize <= get_size(HDRP(bp)))){
+            return bp;
+        }
+        node = node->next;  
+    }
+
+ /*   
+    for(bp = heap_listp; get_size(HDRP(bp))>0; bp = NEXT_BKLP(bp)){
         if (!get_alloc(HDRP(bp)) && (asize <= get_size(HDRP(bp)))){
             return bp;
         }
     }
+    */
     return NULL; /* No fit */
 //#endif 
 }
 
-/* Function Reference Textbook Computer Systems A Programmer's Perspective */
+/* Functions Reference Textbook Computer Systems A Programmer's Perspective */
 
 static void place(void *bp, size_t asize){
     size_t csize = get_size(HDRP(bp));
@@ -211,16 +262,18 @@ static void place(void *bp, size_t asize){
     if((csize - asize) >= (2*DSIZE)){
         put(HDRP(bp), pack(asize, 1));
         put(FTRP(bp), pack(asize, 1));
-        bp = NEXT_BKLP(bp);
+        deleteNode((Node*)bp); //Deleting this block from doubly linked list as it is now allocated 
+        bp = NEXT_BKLP(bp);                     //Going to the next splitted block to add to the doubly linked list
+    	push(&head, bp);                           //Adding the new free block to doubly linked list 
         put(HDRP(bp), pack(csize-asize, 0));
         put(FTRP(bp), pack(csize-asize, 0));
     }
     else{
         put(HDRP(bp), pack(csize, 1));
         put(FTRP(bp), pack(csize, 1));
+        deleteNode((Node*)bp);                  //Since entire block is being used and there is no splitting just removing the block from linkedlist
     }
 }
-
 
 /* rounds up to the nearest multiple of ALIGNMENT */
 static size_t align(size_t x)
@@ -232,30 +285,29 @@ static size_t align(size_t x)
  * Initialize: returns false on error, true on success.
  */
 
-/* Function Reference Textbook Computer Systems A Programmer's Perspective */
-
+/* Functions Reference Textbook Computer Systems A Programmer's Perspective */
 bool mm_init(void)
-{
+{  
     /* IMPLEMENT THIS */
-    if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
-        return false;
-    put(heap_listp, 0);
-    put(heap_listp + (1*WSIZE), pack(DSIZE, 1));
-    put(heap_listp + (2*WSIZE), pack(DSIZE, 1));
-    put(heap_listp + (3*WSIZE), pack(0,1));
-    heap_listp += (3*WSIZE); //This make heap_listp points at the first header
-
-   if(extended_heap(CHUNKSIZE/WSIZE) == NULL)
-        return false;
-    return true;
+  //  struct Node* head = NULL;
+  head = NULL;
+  if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
+    return false;
+  put(heap_listp, 0);
+  put(heap_listp + (1*WSIZE), pack(DSIZE, 1));
+  put(heap_listp + (2*WSIZE), pack(DSIZE, 1));
+  put(heap_listp + (3*WSIZE), pack(0,1));
+  heap_listp += (2*WSIZE); 
+  void *bp = extended_heap(CHUNKSIZE/WSIZE);
+  if(bp == NULL)
+    return false;
+  //push(&head,bp);
+  return true;
 }
 
 /*
  * malloc
  */
-
-/* Functions Reference Textbook Computer Systems A Programmer's Perspective */
-
 void* malloc(size_t size)
 {
     size_t asize;
@@ -277,6 +329,17 @@ void* malloc(size_t size)
         place(bp, asize);
         return bp;
     }
+
+    // if(*(head->next->next) == NULL){
+
+
+   	// 	struct Node* newNode = (struct Node*)bp;
+  		// newNode->next = (*head);
+    // 	newNode->prev = NULL;
+    // 	*head = newNode;
+
+    // 	//*head->next = bp;     
+    // }
     extendsize = max(asize, CHUNKSIZE);
     if((bp = extended_heap(extendsize/WSIZE)) == NULL)
         return NULL;
@@ -287,9 +350,7 @@ void* malloc(size_t size)
 /*
  * free
  */
-
 /* Functions Reference Textbook Computer Systems A Programmer's Perspective */
-
 void free(void* ptr)
 {
     /* IMPLEMENT THIS */
@@ -297,15 +358,12 @@ void free(void* ptr)
     put(HDRP(ptr), pack(size, 0));
     put(FTRP(ptr), pack(size,0));
     coalesce(ptr);
-
-    
+    // deleteNode(ptr);   
 }
 
 /*
  * realloc
  */
-
-/* Implemented on the basis of the given pdf */
 void* realloc(void* oldptr, size_t size)
 {
     /* IMPLEMENT THIS */
@@ -324,106 +382,50 @@ void* realloc(void* oldptr, size_t size)
     if(size == old_size){
         return oldptr;
     }
-    else if (size<old_size){                   // If new size is less than the old size
+    else if (size<old_size){             // If new size is less than the old size
         
         if(size <= DSIZE)
             asize = 2*DSIZE;
         else
             asize = align(size) + DSIZE;
 
-        place(oldptr, asize);
+        place_realloc(oldptr, asize);
         return oldptr;
     }
 
-/*    
-     else if( !get_alloc(PREV_BLKP(HDRP(oldptr))) && (get_size(PREV_BLKP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){
-         printf("On adjacent left");
-         if(size <= DSIZE)
-             asize = 2*DSIZE;
-         else
-             asize = align(size) + DSIZE;
-         void *newPointer = PREV_BLKP(oldptr);
-         place(PREV_BLKP(oldptr), asize);
-         memcpy(PREV_BLKP(oldptr), oldptr, get_size(HDRP(oldptr)) - 16);
-         return newPointer;
 
-     }
-     else if( !get_alloc(NEXT_BKLP(HDRP(oldptr))) && (get_size(NEXT_BKLP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){
-         printf("On adjacent right");
-         if(size <= DSIZE)
-             asize = 2*DSIZE;
-         else
-             asize = align(size) + DSIZE;
-         void *newPointer = NEXT_BKLP(oldptr);
-         place(newPointer, asize);
-         memcpy(newPointer, oldptr, get_size(HDRP(oldptr)) - 16);
-         return newPointer;
+    // else if( !get_alloc(HDRP(PREV_BLKP(oldptr))) && (get_size(HDRP(PREV_BLKP(oldptr)))) + get_size(HDRP(oldptr)) - 16) > size){           // To check previous block is free and adds up to enough size to realloc
+    //     printf("On adjacent left");
+    //     if(size <= DSIZE)
+    //         asize = 2*DSIZE;
+    //     else
+    //         asize = align(size) + DSIZE;
+    //     void *newPointer = PREV_BLKP(oldptr);
+    //     place(PREV_BLKP(oldptr), asize);
+    //     memcpy(PREV_BLKP(oldptr), oldptr, get_size(HDRP(oldptr)) - 16);
+    //     return newPointer;
 
-     }
-*/   
-    void *newPointer = malloc(size);
+    // }
+    // else if( !get_alloc(HDRP(NEXT_BKLP(oldptr))) && (get_size(NEXT_BKLP(HDRP(oldptr))) + get_size(HDRP(oldptr)) - 16) > size){       // To check next block is free and adds up to enough size to realloc
+    //     printf("On adjacent right");
+    //     if(size <= DSIZE)
+    //         asize = 2*DSIZE;
+    //     else
+    //         asize = align(size) + DSIZE;
+    //     void *newPointer = NEXT_BKLP(oldptr);
+    //     place(newPointer, asize);
+    //     memcpy(newPointer, oldptr, get_size(HDRP(oldptr)) - 16);
+    //     return newPointer;
+
+    // }
+   
+    void *newPointer = malloc(size);        /* If none of the above case calling malloc and copying the current data to the new position and freeing the position where the data is currently held */
     if(newPointer){
         memcpy(newPointer, oldptr, size);            
         free(oldptr);
         return newPointer;
      }
-    
-   /* Old Implications to try realloc */ 
 
-    // size_t extra_size = size - old_size;        // Finding the extra size required
-    // oldptr = NEXT_BKLP(oldptr);                 // Sending pointer to next data to find if size is big enough to store data and free
-    // size_t adjacent_size = get_size(HDRP(oldptr));  //Finding size of adjacent block to check if we can realloc there itself
-    // if(adjacent_size >= extra_size && !get_alloc(oldptr)){ // not setting next data 0 if space still left
-    //     //printf("Inside if");
-    //     oldptr = PREV_BLKP(oldptr);
-    //     put(HDRP(oldptr), pack(size, 1));
-    //     put(FTRP(oldptr), pack(size, 1));  
-    //     if(size == 2*old_size){
-    //         memcpy(NEXT_BKLP(oldptr), oldptr, old_size);
-    //     }
-    //     if((adjacent_size - size) >= (2*DSIZE)){
-    //         oldptr = NEXT_BKLP(oldptr);
-    //         put(HDRP(oldptr), pack(adjacent_size-extra_size, 0));
-    //         put(FTRP(oldptr), pack(adjacent_size-extra_size, 0));
-    //         return(PREV_BLKP(oldptr));
-    //     }
-    // }
-    /*else{
-        void* iterator = oldptr;
-        if((iterator = find_fits(size)) != NULL){
-            memcpy(iterator, oldptr, old_size);
-            if(size == 2*old_size){
-                memcpy(iterator+old_size, oldptr, old_size);
-            }
-            free(oldptr);
-            return iterator;
-        }   
-        extendsize = max(size, CHUNKSIZE);
-        if((iterator = extended_heap(extendsize/WSIZE)) == NULL)
-            return NULL;
-
-        memcpy(iterator, oldptr, old_size);
-        if(size == 2*old_size){
-            memcpy(iterator+old_size, oldptr, old_size);
-        }
-        free(oldptr);
-        return iterator;
-    }*/
-
-    // // if((bp = find_fits(size-oldsize)) != NULL){
-    // //     place(oldptr, size-oldsize);
-    // //     reurn bp;
-    // // }
-    // size_t asize;
-
-    // if(size <= DSIZE)
-    //     asize = 2*DSIZE;
-    // else
-    //     asize = align(size) + DSIZE;
-    // if((bp = find_fits(size-old_size)) != NULL){
-    //     place(bp, size-old_size);
-    //     return bp;
-    // }
     return NULL;
 }
 
@@ -470,6 +472,22 @@ bool mm_checkheap(int lineno)
 #ifdef DEBUG
     /* Write code to check heap invariants here */
     /* IMPLEMENT THIS */
+  void *bp;
+  printf("\n\nHeap: \n");
+  for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BKLP(bp)){
+  printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_alloc(HDRP(bp)));
+  }
+  printf("\n\nLinked List: \n");
+  Node* node = (head);
+  while (node != NULL) {
+    bp = node;   
+    printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_alloc(HDRP(bp)));
+   // printf("\nAllocation Bit: %lu \tSinze: %lu", get_alloc(bp), get_size(HDRP(bp)));
+   // if (!get_alloc(HDRP(bp)) && (asize <= get_size(HDRP(bp)))){
+    //  return bp;
+    //}
+    node = node->next;  
+  }                                 
 #endif /* DEBUG */
     return true;
 }
