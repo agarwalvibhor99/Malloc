@@ -102,6 +102,85 @@ void deleteNode(Node* del)
  
     return;  
 }
+
+void *seg_list[10];
+/*
+    0 - {1}
+    1 - {2}
+    2 - {3,4}
+    3 - {5.8}
+    4 - {9.16}
+    5 - {17,32}
+    6 - {33,64}
+    7 - {65,128}
+    8 - (129,256)
+    9 - {257,512}
+    10 - {513,1024}
+    11 - {1025,2048}
+    12 - {2049,4096}
+    13 - {4097,infinity}
+*/
+void selectList(void *bp){
+    size_t size = get_size(HDRP(bp));
+    if(size == 1){
+        seg_list[0] = bp;
+        head = seg_list[0];
+
+    }
+    elif(size == 2){
+        seg_list[1] = bp;
+        head = seg_list[1];
+    }
+    elif(size=>3 || size <= 4){
+        seg_list[2] = bp;
+        head = seg_list[2];
+    
+    }
+    elif(size=>5 || size <= 8){
+        seg_list[3] = bp;
+        head = seg_list[3];
+    }
+    elif(size=>9 || size <= 16){
+        seg_list[4] = bp;
+        head = seg_list[4];
+    }
+    elif(size=>17 || size <= 32){
+        seg_list[5] = bp;
+        head = seg_list[5];
+    }
+    elif(size=>33 || size <= 64){
+        seg_list[6] = bp;
+        head = seg_list[6];
+    }
+    elif(size=>65 || size <= 128){
+        seg_list[7] = bp;
+        head = seg_list[7];
+    }
+    elif(size=>129 || size <= 256){
+        seg_list[8] = bp;
+        head = seg_list[8];
+    }
+    elif(size=>257 || size <= 512){
+        seg_list[9] = bp;
+        head = seg_list[9];
+    }
+    elif(size=>513 || size <= 1024){
+        seg_list[10] = bp;
+        head = seg_list[10];
+    }
+    elif(size=>1025 || size <= 2048){
+        seg_list[11] = bp;
+        head = seg_list[11];
+    }
+    elif(size=>2049 || size <= 4096){
+        seg_list[12] = bp;
+        head = seg_list[12];
+    }
+    elif(size=>4097){
+        seg_list[13] = bp;
+        head = seg_list[13];
+    }
+}
 /*void delete(struct Node** head){
     (*head) = (*head)->next;
 
@@ -273,6 +352,23 @@ static void place(void *bp, size_t asize){
         put(FTRP(bp), pack(csize, 1));
         deleteNode((Node*)bp);                  //Since entire block is being used and there is no splitting just removing the block from linkedlist
     }
+}
+
+static void place_realloc(void *bp, size_t asize){          //A new place for realloc function as we don't delete node here which was causing segfault on trace_file 6 while deleting node
+      size_t csize = get_size(HDRP(bp));
+      if((csize - asize) >= (2*DSIZE)){
+        put(HDRP(bp), pack(asize, 1));
+        put(FTRP(bp), pack(asize, 1));
+        bp = NEXT_BKLP(bp);                     //No delete as we call this when newsize<size user request and in that case no use of linkedlist
+        push(&head, bp);
+        put(HDRP(bp), pack(csize-asize, 0));
+        put(FTRP(bp), pack(csize-asize, 0));
+        }
+        else{
+          put(HDRP(bp), pack(csize, 1));
+          put(FTRP(bp), pack(csize, 1));
+          //deleteNode((Node*)bp);         //Similarly not deleting for that particular reason which caused segfault when deleting as didn't existed in free explicit list         
+        }
 }
 
 /* rounds up to the nearest multiple of ALIGNMENT */
