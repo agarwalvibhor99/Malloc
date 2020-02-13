@@ -81,7 +81,7 @@ void push(void *bp){
   int segListno = addtosegList(addNodeSize);
   head = segList[segListno];
   struct Node* newNode = (struct Node*)bp;
-  newNode->next = (segList[segListno]);
+  newNode->next = (segList[segListno]);			//Instead of using head variable directly using the head address from segList. Earlier approach gave error
   newNode->prev = NULL;
   if(segList[segListno]!= NULL){
     (segList[segListno])->prev = newNode;
@@ -131,7 +131,13 @@ void deleteNode(Node* del)
 
 //Node *segList[14];
 
-
+/* Helper Functions for Segregated Linked list 
+ * Majorly changed place and coalesce function to switch to segregated linked list. Find fit changed to iterate through segList heads now.
+ * Tried using the push and delete function with directly passing head address as parameter but because of error switched to just bp for push function
+ * Inside push function itself making use of the following helper function to find address of head for segList. 
+ * In my coalesce and place function have push() at several positions as while running some traces, realised was calling push too early which was not updating my segList correctly
+ */
+//Returns the head address of the particular segList based on the parameter segListno
 void *getsegListhead(int segListno){
   //unsigned long size = get_size(HDRP(bp));
   if(segListno == 0){
@@ -205,6 +211,8 @@ void *getsegListhead(int segListno){
   return NULL;
   */
 }
+
+//Function to determine the ith number of the segregated linkedlist to be used based on size
 
 int addtosegList(size_t size){
   /*if(size == 1)
