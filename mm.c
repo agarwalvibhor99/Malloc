@@ -411,6 +411,7 @@ static void *find_fits(size_t asize){
     getsegListhead(segListno);
     Node* node = segList[segListno];
     while (segListno <=8){ 
+      node = segList[segListno];        //In last commit I wasn't updating my node again in while loop.
       while (node != NULL) {
     	bp = node;   
         if (asize <= get_size(HDRP(bp))){
@@ -460,6 +461,7 @@ static void place(void *bp, size_t asize){
     }
 }
 
+//Need a different place for realloc call, was get segfault on some traces. Realloc changes already allocated blocks and thus there is no need to delete from any free list which caused seg fault.
 static void place_realloc(void *bp, size_t asize){
       size_t csize = get_size(HDRP(bp));
       //int segListno = addtosegList(csize-asize);
