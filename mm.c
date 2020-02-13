@@ -77,6 +77,7 @@ Node* head = NULL;
 Node *segList[9];
 
 void push(void *bp){
+  /* Finding the size of node we are going to add to find the segList to add it to*/
   size_t addNodeSize = get_size(HDRP(bp));
   int segListno = addtosegList(addNodeSize);
   head = segList[segListno];
@@ -100,33 +101,39 @@ void push(struct Node** head, void *bp){
     *head = newNode;
 }
 */
-void deleteNode(Node* del)  
-{  
+void delete(Node* del)  
+{   
+    /* Finding the size of node we are going to delete to find the segList to delete it from*/
     size_t deleteNodeSize = get_size(HDRP(del));
     int segListno = addtosegList(deleteNodeSize);
-    head = segList[segListno];
+    //head = segList[segListno];
     //head = getsegListhead(segListno);
     /* base case */
     //getsegListhead(del);
    // if (head == NULL || del == NULL)  
      //   return;  
+    /* When the Node passed to delete is empty */
+    if(del == NULL)
+      return;
+    /* segList[segListno] is the address of head for that particular seg list and is treated as head here */
   
-    /* If node to be deleted is head node */
+    /* If condition to check if segList[segListno] which is head is the not we want to delete and accordingly changing head */
     if(segList[segListno] == del)
       segList[segListno] = del->next;
     
     /*if (head == del)  
         head = del->next;  
   */
-    /* Change next only if node to be  
-    deleted is NOT the last node */
+    /* We will change the next of the one which we are deleting if it is not NULL i.e. it is not the Last Node and making the link between the previous and next node to the one we are deleting*/
     if (del->next != NULL)  
         del->next->prev = del->prev;  
   
-    /* Change prev only if node to be  
-    deleted is NOT the first node */
+    /* Checking if it isn't the first node and accordingly making the connection with current next node to the node we are deleting*/
+
     if (del->prev != NULL)  
         del->prev->next = del->next;  
+
+      /* there are two conditions are we are using doubly linked list */
 }
 
 //Node *segList[14];
@@ -225,6 +232,26 @@ int addtosegList(size_t size){
     return 3;
   else if(size >= 9 && size <= 16)
     return 4;*/
+  /*if(size == 32)
+    return 0;
+  else if(size >= 33 && size <= 64)
+    return 1;
+  else if (size >= 65 && size <= 128)
+    return 2;
+  else if(size >= 129 && size <= 256)
+   return 3;
+  else if(size >= 257 && size <= 512)
+   return 4;
+  else if(size >= 513 && size <= 1024)
+   return 5;
+  else if(size >= 1025 && size <= 2048)
+   return 6;
+  else if(size >= 2049 && size <= 4096)
+   return 7;
+  else if(size >= 4097)
+    return 8;
+  else
+    return -1;*/
   if(size == 32)
     return 0;
   else if(size >= 33 && size <= 64)
@@ -245,6 +272,7 @@ int addtosegList(size_t size){
     return 8;
   else
     return -1;
+
 } 
 
 
@@ -332,7 +360,7 @@ static void *extended_heap(size_t words){
 }
 /* Functions Reference Textbook Computer Systems A Programmer's Perspective
  * While deleting nodes had to explicitly cast to Node* otherwise error as parameters is expected to be Node*  
- * of deleteNode
+ * of delete
 */
 static void *coalesce(void *bp){
     size_t prev_alloc = get_alloc(FTRP(PREV_BLKP(bp)));
@@ -360,7 +388,7 @@ static void *coalesce(void *bp){
   //you add the new node to the corrc list
   //
       size += get_size(HDRP(NEXT_BKLP(bp)));
-        deleteNode((Node*)(NEXT_BKLP(bp))); //Removing next free block as will be coalesced with the current one
+        delete((Node*)(NEXT_BKLP(bp))); //Removing next free block as will be coalesced with the current one
         //segListno = addtosegList(size);     //To find correct segListno with new size after coalescing
         //getsegListhead(segListno);
         //push(&head, bp);
@@ -377,7 +405,7 @@ static void *coalesce(void *bp){
     //Remove the current free block and add the address of previous block as it is coalesced
     //remove(bp);
     //push(&head, PREV_BLKP(bp));
-    deleteNode((Node*)PREV_BLKP(bp));            //Removing old free block
+    delete((Node*)PREV_BLKP(bp));            //Removing old free block
     //segListno = addtosegList(size);    //Finding correct segList based on new size
     //push(&segList[segListno], bp);
    // push(bp);
@@ -389,8 +417,8 @@ static void *coalesce(void *bp){
     }
 
     else{                               //Case 4
-    	deleteNode((Node*)(NEXT_BKLP(bp)));
-        deleteNode((Node*)PREV_BLKP(bp));          //Now deleting both prev and next free blocks from list
+    	delete((Node*)(NEXT_BKLP(bp)));
+        delete((Node*)PREV_BLKP(bp));          //Now deleting both prev and next free blocks from list
         size += get_size(HDRP(PREV_BLKP(bp))) + get_size(FTRP(NEXT_BKLP(bp)));
         //segListno = addtosegList(size);    //Finding correct segList based on new size
         //push(&segList[segListno], bp);
@@ -439,10 +467,10 @@ static void place(void *bp, size_t asize){
     size_t csize = get_size(HDRP(bp));
    // int segListno = addtosegList(csize-asize);
     if((csize - asize) >= (2*DSIZE)){
-        deleteNode((Node*)bp);
+        delete((Node*)bp);
         put(HDRP(bp), pack(asize, 1));
         put(FTRP(bp), pack(asize, 1));
-        //deleteNode((Node*)bp);
+        //delete((Node*)bp);
         bp = NEXT_BKLP(bp);
        /* getsegListhead(segListno);
     	//push(&head, bp);
@@ -457,7 +485,7 @@ static void place(void *bp, size_t asize){
     else{
         put(HDRP(bp), pack(csize, 1));
         put(FTRP(bp), pack(csize, 1));
-        deleteNode((Node*)bp);
+        delete((Node*)bp);
     }
 }
 
@@ -480,7 +508,7 @@ static void place_realloc(void *bp, size_t asize){
         else{
           put(HDRP(bp), pack(csize, 1));
           put(FTRP(bp), pack(csize, 1));
-          //deleteNode((Node*)bp);
+          //delete((Node*)bp);
         }
 }
 
@@ -574,7 +602,7 @@ void free(void* ptr)
     put(HDRP(ptr), pack(size, 0));
     put(FTRP(ptr), pack(size,0));
     coalesce(ptr);
-    // deleteNode(ptr);   
+    // delete(ptr);   
 }
 
 /*
@@ -689,6 +717,7 @@ bool mm_checkheap(int lineno)
     /* Write code to check heap invariants here */
     /* IMPLEMENT THIS */
   void *bp;
+  printf("\n\nHeap: \n");
   for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BKLP(bp)){
   printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_alloc(HDRP(bp)));
   }
