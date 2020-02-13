@@ -64,127 +64,180 @@
 static void* heap_listp = NULL;
 static void *coalesce(void *bp);
 static void place(void *bp, size_t asize);
+static inline unsigned long get_size(const void* p);
+static inline char* HDRP(void* bp);
+void *getsegListhead(int segListno);
+int addtosegList(size_t size);
 /* Creating struct for Doubly Linked List : Not yet implemented*/
 typedef struct Node{
-    //unsigned int data;
     struct Node *prev;
     struct Node *next;
 }Node;
 Node* head = NULL;
-void push(struct Node** head, void *bp){                //Function push to add the address of free blocks to the doubley linked list 
-    struct Node* newNode = (struct Node*)bp;            // Using bp instead of malloc which gives the address of free blocks
-    newNode->next = (*head);                            //Always adding to the head therefore assigning next of newNode as current head
-    newNode->prev = NULL;                               //Also since adding as first node setting previous of it as NULL
-    if((*head)!= NULL){                                 //Checking if the list isn't empty, to build a connection with the old head setting its prev to newNode as that newNode will become the head now.
-      (*head)->prev = newNode;
-    }
-    *head = newNode;                                    //Since adding always as first element, setting it as new head.\
+Node *segList[9];
+
+void push(void *bp){
+  size_t addNodeSize = get_size(HDRP(bp));
+  int segListno = addtosegList(addNodeSize);
+  head = segList[segListno];
+  struct Node* newNode = (struct Node*)bp;
+  newNode->next = (segList[segListno]);
+  newNode->prev = NULL;
+  if(segList[segListno]!= NULL){
+    (segList[segListno])->prev = newNode;
+  }
+  segList[segListno] = newNode;
 }
 
+/* Used when was using doubly linked list
+void push(struct Node** head, void *bp){
+    struct Node* newNode = (struct Node*)bp;
+    newNode->next = (*head);
+    newNode->prev = NULL;
+    if((*head)!= NULL){
+      (*head)->prev = newNode;
+    }
+    *head = newNode;
+}
+*/
 void deleteNode(Node* del)  
 {  
-    /* Case when the list is empty or the node to be deleted is NULL */
-    if (head == NULL || del == NULL)  
-        return;  
+    size_t deleteNodeSize = get_size(HDRP(del));
+    int segListno = addtosegList(deleteNodeSize);
+    head = segList[segListno];
+    //head = getsegListhead(segListno);
+    /* base case */
+    //getsegListhead(del);
+   // if (head == NULL || del == NULL)  
+     //   return;  
   
     /* If node to be deleted is head node */
-    if (head == del)  
+    if(segList[segListno] == del)
+      segList[segListno] = del->next;
+    
+    /*if (head == del)  
         head = del->next;  
-  
-    //Since removing a node and middle, making sure the doubly linked list still remain connected with following to if conditions
-
-    /* If del is not the last node which we check using its next then making a connection with the next node of it with the previous of del to not break the link*/
+  */
+    /* Change next only if node to be  
+    deleted is NOT the last node */
     if (del->next != NULL)  
         del->next->prev = del->prev;  
   
-    if (del->prev != NULL)          //This condition to check we aren't deleting the first node as checking if prev isn't NULL
-        del->prev->next = del->next;        //And then linking the node previous to which we are deleting with the node next to we are deleting 
- 
-    return;  
+    /* Change prev only if node to be  
+    deleted is NOT the first node */
+    if (del->prev != NULL)  
+        del->prev->next = del->next;  
 }
 
-void *seg_list[10];
-/*
-    0 - {1}
-    1 - {2}
-    2 - {3,4}
-    3 - {5.8}
-    4 - {9.16}
-    5 - {17,32}
-    6 - {33,64}
-    7 - {65,128}
-    8 - (129,256)
-    9 - {257,512}
-    10 - {513,1024}
-    11 - {1025,2048}
-    12 - {2049,4096}
-    13 - {4097,infinity}
-*/
-void selectList(void *bp){
-    size_t size = get_size(HDRP(bp));
-    if(size == 1){
-        seg_list[0] = bp;
-        head = seg_list[0];
+//Node *segList[14];
 
-    }
-    elif(size == 2){
-        seg_list[1] = bp;
-        head = seg_list[1];
-    }
-    elif(size=>3 || size <= 4){
-        seg_list[2] = bp;
-        head = seg_list[2];
-    
-    }
-    elif(size=>5 || size <= 8){
-        seg_list[3] = bp;
-        head = seg_list[3];
-    }
-    elif(size=>9 || size <= 16){
-        seg_list[4] = bp;
-        head = seg_list[4];
-    }
-    elif(size=>17 || size <= 32){
-        seg_list[5] = bp;
-        head = seg_list[5];
-    }
-    elif(size=>33 || size <= 64){
-        seg_list[6] = bp;
-        head = seg_list[6];
-    }
-    elif(size=>65 || size <= 128){
-        seg_list[7] = bp;
-        head = seg_list[7];
-    }
-    elif(size=>129 || size <= 256){
-        seg_list[8] = bp;
-        head = seg_list[8];
-    }
-    elif(size=>257 || size <= 512){
-        seg_list[9] = bp;
-        head = seg_list[9];
-    }
-    elif(size=>513 || size <= 1024){
-        seg_list[10] = bp;
-        head = seg_list[10];
-    }
-    elif(size=>1025 || size <= 2048){
-        seg_list[11] = bp;
-        head = seg_list[11];
-    }
-    elif(size=>2049 || size <= 4096){
-        seg_list[12] = bp;
-        head = seg_list[12];
-    }
-    elif(size=>4097){
-        seg_list[13] = bp;
-        head = seg_list[13];
-    }
+
+void *getsegListhead(int segListno){
+  //unsigned long size = get_size(HDRP(bp));
+  if(segListno == 0){
+   /* if(segList[0]==NULL){
+      segList[0] = bp;
+    }*/
+    head = segList[0];
+  }
+  else if(segListno == 1){
+   /* if(segList[1] == NULL){
+      segList[1] = bp;
+    }*/
+    head = segList[1];
+  }
+  else if(segListno == 2){
+    /*
+    if(segList[2] == NULL){
+      segList[2] = bp;
+    }*/
+    head = segList[2];
+  }
+  else if(segListno == 3){
+  /*  if(segList[3] == NULL){
+      segList[3] = bp;
+    } */
+    head = segList[3];
+  }
+  else if(segListno == 4){
+    /*if(segList[4] == NULL){
+      segList[4] = bp;
+    }*/
+    head = segList[4];
+  }
+  else if(segListno == 5){
+    /*if(segList[5] == NULL){
+      segList[5] = bp;
+    }*/
+    head = segList[5];
+  }
+  else if(segListno == 6){
+   /* if(segList[6] == NULL){
+      segList[6] = bp;
+    }*/
+    head = segList[6];
+  }
+  else if(segListno == 7){
+    /*if(segList[7] == NULL){
+      segList[7] = bp;
+    }*/
+    head = segList[7];
+  }
+  else if(segListno == 8){
+    head = segList[8];
+  }
+  return NULL;
+ /* else if(segListno == 9){
+    head = segList[9];
+  }
+  else if(segListno == 10){
+    head = segList[10];
+  }
+  else if(segListno == 11){
+    head = segList[11];
+  }
+  else if(segListno == 12){
+    head = segList[12];
+  }
+  else if(segListno == 13){
+    head = segList[13];
+  }
+  return NULL;
+  */
 }
-/*void delete(struct Node** head){
-    (*head) = (*head)->next;
 
-}*/
+int addtosegList(size_t size){
+  /*if(size == 1)
+    return 0;
+  if (size ==2)
+    return 1;
+  else if(size >= 3 && size <= 4)
+    return 2;
+  else if(size >= 5 && size <= 8)
+    return 3;
+  else if(size >= 9 && size <= 16)
+    return 4;*/
+  if(size == 32)
+    return 0;
+  else if(size >= 33 && size <= 64)
+    return 1;
+  else if (size >= 65 && size <= 128)
+    return 2;
+  else if(size >= 129 && size <= 256)
+   return 3;
+  else if(size >= 257 && size <= 512)
+   return 4;
+  else if(size >= 513 && size <= 1024)
+   return 5;
+  else if(size >= 1025 && size <= 2048)
+   return 6;
+  else if(size >= 2049 && size <= 4096)
+   return 7;
+  else if(size >= 4097)
+    return 8;
+  else
+    return -1;
+} 
 
 
 /* Static Inline Functions from Computer Systems A Programmer's Perspective Book*/
@@ -269,41 +322,75 @@ static void *extended_heap(size_t words){
     /* Coalesce if the previous block was free */
     return coalesce(bp);  
 }
-/* Functions Reference Textbook Computer Systems A Programmer's Perspective */
+/* Functions Reference Textbook Computer Systems A Programmer's Perspective
+ * While deleting nodes had to explicitly cast to Node* otherwise error as parameters is expected to be Node*  
+ * of deleteNode
+*/
 static void *coalesce(void *bp){
     size_t prev_alloc = get_alloc(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = get_alloc(HDRP(NEXT_BKLP(bp)));
     size_t size = get_size(HDRP(bp));
-  
+    //int segListno = addtosegList(size);
     if (prev_alloc && next_alloc){  //Case 1 
-        push(&head,bp);                         //Both prev and next block are already allocated, so just adding the new block to linkedlist
+        //getsegListhead(segListno);
+        //push(&head,bp);
+        //push(&segList[segListno], bp);
+        push(bp);
         return bp;
     }
 
     else if (prev_alloc && !next_alloc){     //Case 2 
-        size += get_size(HDRP(NEXT_BKLP(bp)));
+  //find the size of next block in order to find its correct list
+  ////once you found the correct list
+  ////you remove next node
+  //
+  ////
+  //you update the size size + next size
+  //you update header and footer to hvaer a new nblock
+  //
+  //using ythe updated size, you find the correct lsit
+  //you add the new node to the corrc list
+  //
+      size += get_size(HDRP(NEXT_BKLP(bp)));
         deleteNode((Node*)(NEXT_BKLP(bp))); //Removing next free block as will be coalesced with the current one
-        push(&head, bp);                        //Adding the starting position to the linkedlist of free block
+        //segListno = addtosegList(size);     //To find correct segListno with new size after coalescing
+        //getsegListhead(segListno);
+        //push(&head, bp);
+        //push(&segList[segListno], bp);
+        //push(bp);
         put(HDRP(bp), pack(size, 0));
         put(FTRP(bp), pack(size, 0));
+        push(bp);
+        //return bp;
     }
 
     else if (!prev_alloc && next_alloc){    //Case 3 
     size += get_size(HDRP(PREV_BLKP(bp)));
     //Remove the current free block and add the address of previous block as it is coalesced
     //remove(bp);
-    //push(&head, PREV_BLKP(bp));                           //No change requried as previous block already free we just need to update it's header
+    //push(&head, PREV_BLKP(bp));
+    deleteNode((Node*)PREV_BLKP(bp));            //Removing old free block
+    //segListno = addtosegList(size);    //Finding correct segList based on new size
+    //push(&segList[segListno], bp);
+   // push(bp);
     put(FTRP(bp), pack(size, 0));
     put(HDRP(PREV_BLKP(bp)), pack(size, 0));
+   // push(bp);
     bp = PREV_BLKP(bp);
+    push(bp);
     }
 
     else{                               //Case 4
-    	deleteNode((Node*)(NEXT_BKLP(bp)));                  //Updating header of previous block and deleting the next free block as three coalesced as one single free block
+    	deleteNode((Node*)(NEXT_BKLP(bp)));
+        deleteNode((Node*)PREV_BLKP(bp));          //Now deleting both prev and next free blocks from list
         size += get_size(HDRP(PREV_BLKP(bp))) + get_size(FTRP(NEXT_BKLP(bp)));
+        //segListno = addtosegList(size);    //Finding correct segList based on new size
+        //push(&segList[segListno], bp);
+       // push(bp);
         put(HDRP(PREV_BLKP(bp)), pack(size, 0));
         put(FTRP(NEXT_BKLP(bp)), pack(size, 0));
         bp = PREV_BLKP(bp);
+        push(bp);
     }
     return bp;
 }
@@ -312,14 +399,18 @@ static void *coalesce(void *bp){
 static void *find_fits(size_t asize){
     /* First-fit search */
     void *bp;
-
-    Node* node = (head);                                    //Iterating through the complete explicit linked list to find appropriate free block using while like we did in pointer lab
-    while (node != NULL) {
+    int segListno = addtosegList(asize);
+    getsegListhead(segListno);
+    Node* node = segList[segListno];
+    while (segListno <=8){ 
+      while (node != NULL) {
     	bp = node;   
-        if (!get_alloc(HDRP(bp)) && (asize <= get_size(HDRP(bp)))){
-            return bp;
+        if (asize <= get_size(HDRP(bp))){
+          return bp;
         }
         node = node->next;  
+      }
+      segListno++;
     }
 
  /*   
@@ -337,39 +428,53 @@ static void *find_fits(size_t asize){
 
 static void place(void *bp, size_t asize){
     size_t csize = get_size(HDRP(bp));
-
+   // int segListno = addtosegList(csize-asize);
     if((csize - asize) >= (2*DSIZE)){
+        deleteNode((Node*)bp);
         put(HDRP(bp), pack(asize, 1));
         put(FTRP(bp), pack(asize, 1));
-        deleteNode((Node*)bp); //Deleting this block from doubly linked list as it is now allocated 
-        bp = NEXT_BKLP(bp);                     //Going to the next splitted block to add to the doubly linked list
-    	push(&head, bp);                           //Adding the new free block to doubly linked list 
+        //deleteNode((Node*)bp);
+        bp = NEXT_BKLP(bp);
+       /* getsegListhead(segListno);
+    	//push(&head, bp);
+        push(&segList[segListno], bp);*/
+       // segListno = addtosegList(czise-asize);
         put(HDRP(bp), pack(csize-asize, 0));
         put(FTRP(bp), pack(csize-asize, 0));
+        //getsegListhead(segListno);
+        //push(&segList[segListno], bp);
+        push(bp);
     }
     else{
         put(HDRP(bp), pack(csize, 1));
         put(FTRP(bp), pack(csize, 1));
-        deleteNode((Node*)bp);                  //Since entire block is being used and there is no splitting just removing the block from linkedlist
+        deleteNode((Node*)bp);
     }
 }
 
-static void place_realloc(void *bp, size_t asize){          //A new place for realloc function as we don't delete node here which was causing segfault on trace_file 6 while deleting node
+static void place_realloc(void *bp, size_t asize){
       size_t csize = get_size(HDRP(bp));
+      //int segListno = addtosegList(csize-asize);
       if((csize - asize) >= (2*DSIZE)){
         put(HDRP(bp), pack(asize, 1));
         put(FTRP(bp), pack(asize, 1));
-        bp = NEXT_BKLP(bp);                     //No delete as we call this when newsize<size user request and in that case no use of linkedlist
-        push(&head, bp);
+        bp = NEXT_BKLP(bp);
+        //getsegListhead(segListno);
+        //push(&head, bp);
+        //push(&segList[segListno], bp);
+        //push(bp);
         put(HDRP(bp), pack(csize-asize, 0));
         put(FTRP(bp), pack(csize-asize, 0));
+        push(bp);
         }
         else{
           put(HDRP(bp), pack(csize, 1));
           put(FTRP(bp), pack(csize, 1));
-          //deleteNode((Node*)bp);         //Similarly not deleting for that particular reason which caused segfault when deleting as didn't existed in free explicit list         
+          //deleteNode((Node*)bp);
         }
 }
+
+
 
 /* rounds up to the nearest multiple of ALIGNMENT */
 static size_t align(size_t x)
@@ -386,14 +491,19 @@ bool mm_init(void)
 {  
     /* IMPLEMENT THIS */
   //  struct Node* head = NULL;
+  int listno = 0;
   head = NULL;
+  while(listno <= 8){
+      segList[listno] = NULL;
+      listno++;
+  } 
   if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
     return false;
   put(heap_listp, 0);
   put(heap_listp + (1*WSIZE), pack(DSIZE, 1));
   put(heap_listp + (2*WSIZE), pack(DSIZE, 1));
   put(heap_listp + (3*WSIZE), pack(0,1));
-  heap_listp += (2*WSIZE); 
+  heap_listp += (2*WSIZE); //This make heap_listp points at the first header
   void *bp = extended_heap(CHUNKSIZE/WSIZE);
   if(bp == NULL)
     return false;
@@ -569,11 +679,29 @@ bool mm_checkheap(int lineno)
     /* Write code to check heap invariants here */
     /* IMPLEMENT THIS */
   void *bp;
-  printf("\n\nHeap: \n");
   for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BKLP(bp)){
   printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_alloc(HDRP(bp)));
   }
-  printf("\n\nLinked List: \n");
+  printf("\n\nSegregated Linked List: \n");
+  int listno = 0;
+  while(listno <= 8 ){
+    getsegListhead(listno);
+    Node* node = (head);
+    printf("\n\n List: %d\n", listno);
+    while(node != NULL){
+    bp = node;
+    printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_alloc(HDRP(bp)));
+    node = node->next;
+    }
+   listno++; 
+  }
+
+
+
+
+
+
+ /* printf("\n\nLinked List: \n");
   Node* node = (head);
   while (node != NULL) {
     bp = node;   
@@ -583,7 +711,7 @@ bool mm_checkheap(int lineno)
     //  return bp;
     //}
     node = node->next;  
-  }                                 
+  }*/                                 
 #endif /* DEBUG */
     return true;
 }
