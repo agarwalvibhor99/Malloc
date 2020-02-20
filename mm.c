@@ -393,6 +393,7 @@ static void *coalesce(void *bp){
   size_t next_alloc = get_alloc(HDRP(NEXT_BKLP(bp)));
   size_t size = get_size(HDRP(bp));
   if (prev_alloc && next_alloc){  //Case 1 
+    put(HDRP(NEXT_BKLP(bp)), pack(get_size(HDRP(NEXT_BKLP(bp))), 0, 1 ));
     push(bp);
     return bp;
   }
@@ -401,7 +402,7 @@ static void *coalesce(void *bp){
   else if (prev_alloc && !next_alloc){     //Case 2 
     size += get_size(HDRP(NEXT_BKLP(bp)));
     delete((Node*)(NEXT_BKLP(bp))); //Removing next free block as will be coalesced with the current one
-    put(HDRP(bp), pack(size, 1, 0));    //Size + 8 because now we can remove the footer and add that to size since the block is now allocated
+    put(HDRP(bp), pack(size, 1, 0));  
     put(FTRP(bp), pack(size, 1, 0));
     push(bp);
   }
@@ -411,7 +412,7 @@ static void *coalesce(void *bp){
     delete((Node*)PREV_BLKP(bp));            //Removing old free block
     put(FTRP(bp), pack(size, 1, 0));         //Footer of new free block
     put(HDRP(PREV_BLKP(bp)), pack(size, 1, 0)); //header of new coalesced free block
-    put(HDRP(NEXT_BKLP(bp)), pack(get_size(HDRP(NEXT_BKLP(bp))), 1, 1 ));
+    put(HDRP(NEXT_BKLP(bp)), pack(get_size(HDRP(NEXT_BKLP(bp))), 0, 1 ));    //Setting the next block prev_alloc bit in header as 0 as we are coalescing free blocks
     bp = PREV_BLKP(bp);
     push(bp);
   }
@@ -457,6 +458,7 @@ static void place(void *bp, size_t asize){
   if((csize - asize) >= (2*DSIZE)){
     delete((Node*)bp);
     put(HDRP(bp), pack(asize, 1, 1));
+    //put(HDRP(NEXT_BKLP(bp)), pack(get_size(NEXT_BKLP(bp)), 1, get_alloc(HDRP(NEXT_BKLP(bp)))));
     //put(FTRP(bp), pack(asize, 1, 1));
     bp = NEXT_BKLP(bp);
     put(HDRP(bp), pack(csize-asize, 1, 0)); //Adding 8 because now since above we have marked as allocated we no more need footer 8 bytes
@@ -470,6 +472,7 @@ static void place(void *bp, size_t asize){
       put(HDRP(bp), pack(get_size(HDRP(NEXT_BKLP(bp)))+8, 1, 0));
     }*/
     put(HDRP(bp), pack(csize, 1, 1)); //take care of the 8 bits 
+    put(HDRP(NEXT_BKLP(bp)), pack(get_size(HDRP(NEXT_BKLP(bp))), 1, get_alloc(HDRP(NEXT_BKLP(bp))))); //There was error when was allocating freed block and prev_alloc wasn't getting updating in the heap, then had to add this line.
     //put(FTRP(bp), pack(csize, 1));
     delete((Node*)bp);
   }
@@ -568,10 +571,13 @@ void* malloc(size_t size)
 void free(void* ptr)
 {
   /* IMPLEMENT THIS */
-  size_t size = get_size(HDRP(ptr)); 
+  size_t size = get_size(HDRP(ptr));
+  if(get_alloc(HDRP(ptr))==0)
+   return; 
   int prev_alloc = get_prev_alloc(HDRP(ptr)); 
   put(HDRP(ptr), pack(size, prev_alloc, 0));
   put(FTRP(ptr), pack(size, prev_alloc, 0));
+  put(HDRP(NEXT_BKLP(ptr)), pack(get_size(HDRP(NEXT_BKLP(ptr))), 0, get_alloc(HDRP(NEXT_BKLP(ptr)))));
   coalesce(ptr);
 }
 
@@ -598,7 +604,7 @@ void* realloc(void* oldptr, size_t size)
     if(size <= DSIZE)
       asize = 2*DSIZE;
     else
-      asize = align(size) + DSIZE;
+      asize = align(size+WSIZE); //+ DSIZE;
 
     place_realloc(oldptr, asize);
     return oldptr;
@@ -676,7 +682,7 @@ bool mm_checkheap(int lineno)
     listno++;
   }
 
-  listno = 0;
+ /* listno = 0;
   while(listno <= 8){
     getsegListhead(listno);
     Node* node = head;
@@ -689,7 +695,7 @@ bool mm_checkheap(int lineno)
       node = node->next;
     }
     listno++;
-  }
+  }*/
 
 
 
