@@ -90,28 +90,11 @@ void push(void *bp){
   segList[segListno] = newNode;
 }
 
-/* Used when was using doubly linked list
-   void push(struct Node** head, void *bp){
-   struct Node* newNode = (struct Node*)bp;
-   newNode->next = (*head);
-   newNode->prev = NULL;
-   if((*head)!= NULL){
-   (*head)->prev = newNode;
-   }
- *head = newNode;
- }
- */
 void delete(Node* del)  
 {   
   /* Finding the size of node we are going to delete to find the segList to delete it from*/
   size_t deleteNodeSize = get_size(HDRP(del));
   int segListno = addtosegList(deleteNodeSize);
-  //head = segList[segListno];
-  //head = getsegListhead(segListno);
-  /* base case */
-  //getsegListhead(del);
-  // if (head == NULL || del == NULL)  
-  //   return;  
   /* When the Node passed to delete is empty */
   if(del == NULL)
     return;
@@ -121,9 +104,6 @@ void delete(Node* del)
   if(segList[segListno] == del)
     segList[segListno] = del->next;
 
-  /*if (head == del)  
-    head = del->next;  
-    */
   /* We will change the next of the one which we are deleting if it is not NULL i.e. it is not the Last Node and making the link between the previous and next node to the one we are deleting*/
   if (del->next != NULL)  
     del->next->prev = del->prev;  
@@ -146,113 +126,39 @@ void delete(Node* del)
  */
 //Returns the head address of the particular segList based on the parameter segListno
 void *getsegListhead(int segListno){
-  //unsigned long size = get_size(HDRP(bp));
   if(segListno == 0){
-    /* if(segList[0]==NULL){
-       segList[0] = bp;
-       }*/
     head = segList[0];
   }
   else if(segListno == 1){
-    /* if(segList[1] == NULL){
-       segList[1] = bp;
-       }*/
     head = segList[1];
   }
   else if(segListno == 2){
-    /*
-       if(segList[2] == NULL){
-       segList[2] = bp;
-       }*/
     head = segList[2];
   }
   else if(segListno == 3){
-    /*  if(segList[3] == NULL){
-        segList[3] = bp;
-        } */
     head = segList[3];
   }
   else if(segListno == 4){
-    /*if(segList[4] == NULL){
-      segList[4] = bp;
-      }*/
     head = segList[4];
   }
   else if(segListno == 5){
-    /*if(segList[5] == NULL){
-      segList[5] = bp;
-      }*/
     head = segList[5];
   }
   else if(segListno == 6){
-    /* if(segList[6] == NULL){
-       segList[6] = bp;
-       }*/
     head = segList[6];
   }
   else if(segListno == 7){
-    /*if(segList[7] == NULL){
-      segList[7] = bp;
-      }*/
     head = segList[7];
   }
   else if(segListno == 8){
     head = segList[8];
   }
   return NULL;
-  /* else if(segListno == 9){
-     head = segList[9];
-     }
-     else if(segListno == 10){
-     head = segList[10];
-     }
-     else if(segListno == 11){
-     head = segList[11];
-     }
-     else if(segListno == 12){
-     head = segList[12];
-     }
-     else if(segListno == 13){
-     head = segList[13];
-     }
-     return NULL;
-     */
 }
 
 //Function to determine the ith number of the segregated linkedlist to be used based on size
 
 int addtosegList(size_t size){
-  /*if(size == 1)
-    return 0;
-    if (size ==2)
-    return 1;
-    else if(size >= 3 && size <= 4)
-    return 2;
-    else if(size >= 5 && size <= 8)
-    return 3;
-    else if(size >= 9 && size <= 16)
-    return 4;*/
-  /*if(size == 32)
-    return 0;
-    else if(size >= 33 && size <= 64)
-    return 1;
-    else if (size >= 65 && size <= 128)
-    return 2;
-    else if(size >= 129 && size <= 256)
-    return 3;
-    else if(size >= 257 && size <= 512)
-    return 4;
-    else if(size >= 513 && size <= 1024)
-    return 5;
-    else if(size >= 1025 && size <= 2048)
-    return 6;
-    else if(size >= 2049 && size <= 4096)
-    return 7;
-    else if(size >= 4097)
-    return 8;
-    else
-    return -1;*/
-   
   if(size ==32)
      return 0;
      else if(size <= 64 )
@@ -273,28 +179,6 @@ int addtosegList(size_t size){
      return 8;
      else
      return -1;
-/*
-  if(size == 16)                                                                 
-    return 0;                                                                   
-  else if(size >= 17 )                                             
-    return 1;                                                                   
-  else if (size >= 33 )                                           
-    return 2;                                                                   
-  else if(size >= 65 )                                           
-    return 3;                                                                  
-  else if(size >= 129)                                           
-    return 4;                                                                  
-  else if(size >= 257)                                          
-    return 5;                                                                   
-  else if(size >= 513)                                         
-    return 6;                                                                   
-  else if(size >= 1025)                                         
-    return 7;                                                                   
-  else if(size >= 2049)                                                         
-    return 8;                                                                   
-  else                                                                          
-    return -1;                                                                  
-*/
 
 } 
 
@@ -302,6 +186,8 @@ int addtosegList(size_t size){
 /* Static Inline Functions from Computer Systems A Programmer's Perspective Book*/
 
 /* was defined as Macros in the book changed into a static inline function*/
+
+/* Added some helper function for footer optmization like get_prev_alloc() and updated pack function to include prev_alloc bit */
 
 static inline unsigned long max(long x, long y){
   return ((x) > (y)? (x) : (y));
@@ -458,22 +344,14 @@ static void place(void *bp, size_t asize){
   if((csize - asize) >= (2*DSIZE)){
     delete((Node*)bp);
     put(HDRP(bp), pack(asize, 1, 1));
-    //put(HDRP(NEXT_BKLP(bp)), pack(get_size(NEXT_BKLP(bp)), 1, get_alloc(HDRP(NEXT_BKLP(bp)))));
-    //put(FTRP(bp), pack(asize, 1, 1));
     bp = NEXT_BKLP(bp);
-    put(HDRP(bp), pack(csize-asize, 1, 0)); //Adding 8 because now since above we have marked as allocated we no more need footer 8 bytes
+    put(HDRP(bp), pack(csize-asize, 1, 0)); 
     put(FTRP(bp), pack(csize-asize, 1, 0));
     push(bp);
   }
   else{
-    //coalesce(bp);
-   /* if(get_alloc(HDRP(NEXT_BKLP(bp))) == 0){
-      put(HDRP(bp), pack(get_size(HDRP(NEXT_BKLP(bp)))+8, 1, 0));
-      put(HDRP(bp), pack(get_size(HDRP(NEXT_BKLP(bp)))+8, 1, 0));
-    }*/
-    put(HDRP(bp), pack(csize, 1, 1)); //take care of the 8 bits 
+    put(HDRP(bp), pack(csize, 1, 1)); 
     put(HDRP(NEXT_BKLP(bp)), pack(get_size(HDRP(NEXT_BKLP(bp))), 1, get_alloc(HDRP(NEXT_BKLP(bp))))); //There was error when was allocating freed block and prev_alloc wasn't getting updating in the heap, then had to add this line.
-    //put(FTRP(bp), pack(csize, 1));
     delete((Node*)bp);
   }
 }
@@ -484,7 +362,6 @@ static void place_realloc(void *bp, size_t asize){
   int prev_alloc = get_prev_alloc(HDRP(bp));
   if((csize - asize) >= (2*DSIZE)){
     put(HDRP(bp), pack(asize, prev_alloc, 1));
-    //put(FTRP(bp), pack(asize, prev_alloc, 1));
     bp = NEXT_BKLP(bp);
     put(HDRP(bp), pack(csize-asize, prev_alloc, 0));
     put(FTRP(bp), pack(csize-asize, prev_alloc, 0));
@@ -492,7 +369,6 @@ static void place_realloc(void *bp, size_t asize){
   }
   else{
     put(HDRP(bp), pack(csize, prev_alloc, 1));
-    // put(FTRP(bp), pack(csize, prev_alloc, 1));
   }
 }
 
@@ -548,9 +424,7 @@ void* malloc(size_t size)
   if(size <= DSIZE)
     asize = 2*DSIZE;
   else{
-    asize =align(size+WSIZE);// + WSIZE;//((size+WSIZE)|ALIGNMENT)+1 ;//align(size)+DSIZE;// DSIZE;//DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);// use alignment function
-    //asize = asize/8;
-    //asize = (asize % 2) ? (asize+1) * WSIZE : asize*WSIZE;     
+    asize =align(size+WSIZE); // Changed method to find asize as now we don't want footer in allocated blocks. Calling align functino with WSIZE added in the paramter to size which will return the required  aligned address to make use of only headers in allocated blocks
   }
   if((bp = find_fits(asize)) != NULL){
     place(bp, asize);
@@ -662,6 +536,7 @@ bool mm_checkheap(int lineno)
 #ifdef DEBUG
   /* Write code to check heap invariants here */
   /* IMPLEMENT THIS */
+  /* Mostly called mm_checkheap(1) in gdb whenever wanted to check the heap and segList and that would make the comparison easier. Also called this in malloc at times to make sure I'm adding blocks correctly to heap */
   void *bp;
   printf("\n\nHeap: \n");
   for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BKLP(bp)){
@@ -676,13 +551,12 @@ bool mm_checkheap(int lineno)
     while(node != NULL){
       bp = node;
       printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \t\tPrevA: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
-      //printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_alloc(HDRP(bp)));
       node = node->next;
     }
     listno++;
   }
 
- /* listno = 0;
+  listno = 0;
   while(listno <= 8){
     getsegListhead(listno);
     Node* node = head;
@@ -695,23 +569,14 @@ bool mm_checkheap(int lineno)
       node = node->next;
     }
     listno++;
-  }*/
+  }
 
-
-
-
-
-  /* printf("\n\nLinked List: \n");
-     Node* node = (head);
-     while (node != NULL) {
-     bp = node;   
-     printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_alloc(HDRP(bp)));
-  // printf("\nAllocation Bit: %lu \tSinze: %lu", get_alloc(bp), get_size(HDRP(bp)));
-  // if (!get_alloc(HDRP(bp)) && (asize <= get_size(HDRP(bp)))){
-  //  return bp;
-  //}
-  node = node->next;  
-  }*/                                 
+/* Used this when footer optimization wasn't there */
+/*
+  for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BKLP(bp)){
+  	assert(get(HDRP(bp)) == get(FTRP(bp)));
+  }
+*/                                 
 #endif /* DEBUG */
   return true;
 }
