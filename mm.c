@@ -8,14 +8,42 @@
  * Also, read malloclab.pdf carefully and in its entirety before beginning.
  *
  */
-/*
+/* Reference: Computer Systems: A Programmer's Perspective
+ *
+ * CHECKPOINT 1: Did implicit implemenation. Throughput and utilization both were very low as we checked all block in memory irrespective of if they were allocated or free
+ * CHECKPOINT 2: Used Segregated Free List which stored only the free block. Didn't had to iterate through complete heap to find for free block and only the SegList. Throughput was maximum but Utilization was less.
+ * CHECKPOINT 3: Footer Optimization to increase utility as now we are getting rid of footers in allocated block and saving memory 
+ * Using Segregated Explicit List with Footer Optmization
  * 
- * Using segregated free list to keep free blocks. There are 8 of them based on different sizes.
- * SegList is pointer array of Struct Node which has two pointers prev and next. For making it 16 bit aligned 
- * and keeping in mind about freeing allocated block, the minimum size is 32 bytes. Each free block has 8 bytes
- * for header and 8 bytes for footer which stores the size, allocation bit for itself and one for the previous block
+ * Basic Structure
+ *
+ * Allocated block				Free block    			Segregated List(Keep free blocks: SL0, SL1, ... is the head and points to first node for each segList for different size)
+ *| ----------------|		|-------------------|      [SL0]  [SL1]   [SL2]  [SL3]  [SL4]  [SL5]  [SL6]  [SL7]   [SL8]  
+ *|				   	|		|	   Header		|      	 |		|		|	   |	  |		 |		|	   |	   |
+ *|	     Header		|		|___________________|		[ ]	   [ ]     [ ]	  [ ]    [ ]    NULL   [ ]	  [ ]     NULL
+ *|-----------------|		|					|		 |		|		|      |      |				|	   |
+ *|					|		|		Prev		|		[ ]	   [ ]	   NULL   NULL   NULL		   NULL	  NULL
+ *|					|		|___________________|		 |		|
+ *|    				|		|					|		[ ]	   NULL
+ *|	    Payload		|		|		Next		|        |
+ *|					|		|___________________|       NULL
+ *|					|		|					|			
+ *|					|		|	   Footer	 	|
+ *|_________________|		|___________________|
+ * No footer in   			Footer are there in
+ * Allocated blocks         free blocks
+ *
+ * SEGREGATED LIST for FREE BLOCKS : 8 SEGLIST based on size
+ * SegList is pointer array of Struct Node which has two pointers prev and next. 
+ * 
+ * For making it 16 bit aligned and keeping in mind about freeing allocated block, the minimum size is 32 bytes.
+ * Each free block has 8 bytes for header and 8 bytes for footer which stores the size, allocation bit for itself and one for the previous block
  * Allocated block have a header of 8 bytes which stores the size, allocation bit for itself and allocation bit for
  * previous block.
+ *
+ * Malloc Function: Malloc function is used to allocate memory based on the size passed and keeping alignment in mind. 
+ *				    This function calls find_fit() to find the bp to allocate memory at and place. Also calling extend_heap()
+ *					if there is no place currently in the heap to allocate the sufficient memory.
  *
  * Coalesce Function is used to join 2 or more free adjacent blocks when extendheap or free is called.
  *
@@ -96,20 +124,24 @@ static inline unsigned long get_size(const void* p);
 static inline char* HDRP(void* bp);
 void *getsegListhead(int segListno);
 int addtosegList(size_t size);
-/* Creating struct for Doubly Linked List : Not yet implemented*/
+/* Creating struct for Doubly Linked List */
 typedef struct Node{
 	struct Node *prev;
 	struct Node *next;
 }Node;
 Node* head = NULL;
+/* To store the head of all 9 segList which is initialized as NULL in mm_init */
 Node *segList[9];
 
+/*
+ * push function which has pointer bp passed as reference, finds correct segList based on size
+ * and then add to the head of segList. Using segList[segListno] as the head variable directly
+ */
 void push(void *bp){
-	/* Finding the size of node we are going to add to find the segList to add it to*/
 	size_t addNodeSize = get_size(HDRP(bp));
 	int segListno = addtosegList(addNodeSize);
 	struct Node* newNode = (struct Node*)bp;
-	newNode->next = (segList[segListno]);			//Instead of using head variable directly using the head address from segList. Earlier approach gave error
+	newNode->next = (segList[segListno]);			
 	newNode->prev = NULL;
 	if(segList[segListno]!= NULL){
 		(segList[segListno])->prev = newNode;
@@ -117,6 +149,11 @@ void push(void *bp){
 	segList[segListno] = newNode;
 }
 
+/* 
+ * delete function gets the bp address as the reference of the node to be deleted. 
+ * find the segList for that bp by using the size of bp and then delete that node and update
+ * prev and next pointers.
+ */
 void delete(Node* del)  
 {   
 	/* Finding the size of node we are going to delete to find the segList to delete it from*/
@@ -155,7 +192,8 @@ void delete(Node* del)
  * In my coalesce and place function have push() at several positions as while running some traces,
  * realised was calling push too early which was not updating my segList correctly
  */
-//Returns the head address of the particular segList based on the parameter segListno
+
+/* Returns the head address of the particular segList based on the parameter segListno */
 void *getsegListhead(int segListno){
 	if(segListno == 0){
 		head = segList[0];
@@ -187,7 +225,7 @@ void *getsegListhead(int segListno){
 	return NULL;
 }
 
-//Function to determine the ith number of the segregated linkedlist to be used based on size
+/* Function returns the ith number of the segregated linkedlist to be used based on size */
 
 int addtosegList(size_t size){
 	if(size ==32)
@@ -211,8 +249,7 @@ int addtosegList(size_t size){
 	else
 		return -1;
 
-} 
-
+}
 
 /* Static Inline Functions from Computer Systems A Programmer's Perspective Book*/
 
@@ -285,6 +322,11 @@ static inline char* PREV_BLKP(void* bp){
 /*
  * Additional Functions Reference Textbook Computer Systems A Programmer's Perspective
  */
+/* 
+ * Takes the size as input and allocate even number of blocks for alignment.
+ * Also, create free block header, footer and update epilogue after extending heapsize
+ * This returns coalesce, to merge any two consecutive free blocks
+ */
 static void *extended_heap(size_t words){
 	char *bp;
 	size_t size;
@@ -294,52 +336,62 @@ static void *extended_heap(size_t words){
 		return NULL;
 
 	/* Initialize free block header/footer and the epilogue header */
-	put(HDRP(bp), pack(size, 1, 0));              /* Free block header */
-	put(FTRP(bp), pack(size, 1, 0));       /* Free block footer */
-	put(HDRP(NEXT_BLKP(bp)), pack(0, 1, 1));/* New epilogue header */ // size 0 allocation 1
+	put(HDRP(bp), pack(size, get_prev_alloc(HDRP(bp)), 0));              /* Free block header */
+	put(FTRP(bp), pack(size, get_prev_alloc(HDRP(bp)), 0));       /* Free block footer */
+	put(HDRP(NEXT_BLKP(bp)), pack(0, 0, 1));			/* New epilogue header */ 
 
 	/* Coalesce if the previous block was free */
 	return coalesce(bp);  
 }
+
 /* Functions Reference Textbook Computer Systems A Programmer's Perspective
+ * Coealesce functions joins any two consistent free blocks and update size. Adjusting size and allocation bits of current and prev block. 
+ * Also, adjusting the prev_alloc bit in NEXT blocks once they are merged and added to segList as free blocks. There are 4 cases
+ * 1) When both the next and prev blocks are allocated and no need of merging anything, but udpate next block that prev block is free
+ * 2) Next block is free, then I join the next block and update the seglist with correct free block
+ * 3) Prev blo k is free, then I join the prev block and update the segList with correct free block
+ * 4) Both prev and next block are free, then I join the three block update size and update the segList.
  * While deleting nodes had to explicitly cast to Node* otherwise error as parameters is expected to be Node*  
  * of delete
+ * 
  */
 static void *coalesce(void *bp){
 	size_t prev_alloc = get_prev_alloc(HDRP(bp));
 	size_t next_alloc = get_alloc(HDRP(NEXT_BLKP(bp)));
 	size_t size = get_size(HDRP(bp));
-	if (prev_alloc && next_alloc){  //Case 1 
+	/* Case 1: Both prev and next allocated */
+	if (prev_alloc && next_alloc){  												 
 		put(HDRP(NEXT_BLKP(bp)), pack(get_size(HDRP(NEXT_BLKP(bp))), 0, 1 ));
 		push(bp);
 		return bp;
 	}
-	// or call the get_prev_alloc function in pack everywhere to put whatever it
-	// was before hand
-	else if (prev_alloc && !next_alloc){     //Case 2 
+	/* Case 2: Prev block allocated and next block is free */
+	else if (prev_alloc && !next_alloc){    										  
 		size += get_size(HDRP(NEXT_BLKP(bp)));
-		delete((Node*)(NEXT_BLKP(bp))); //Removing next free block as will be coalesced with the current one
+		delete((Node*)(NEXT_BLKP(bp))); 
 		put(HDRP(bp), pack(size, 1, 0));  
 		put(FTRP(bp), pack(size, 1, 0));
+		put(HDRP(NEXT_BLKP(bp)), pack(get_size(HDRP(NEXT_BLKP(bp))), 0, 1 ));
 		push(bp);
 	}
-
-	else if (!prev_alloc && next_alloc){    //Case 3 
+    /* Case 3: Prev block is free and next is allocated */
+	else if (!prev_alloc && next_alloc){    
 		size += get_size(HDRP(PREV_BLKP(bp)));
-		delete((Node*)PREV_BLKP(bp));            //Removing old free block
-		put(FTRP(bp), pack(size, 1, 0));         //Footer of new free block
-		put(HDRP(PREV_BLKP(bp)), pack(size, 1, 0)); //header of new coalesced free block
+		delete((Node*)PREV_BLKP(bp));           
+		put(FTRP(bp), pack(size, 1, 0));        
+		put(HDRP(PREV_BLKP(bp)), pack(size, 1, 0)); 
 		put(HDRP(NEXT_BLKP(bp)), pack(get_size(HDRP(NEXT_BLKP(bp))), 0, 1 )); //Setting the next block prev_alloc bit in header as 0 as we are coalescing free blocks
 		bp = PREV_BLKP(bp);
 		push(bp);
 	}
-
-	else{                               //Case 4
+	/* Case 4: Prev block and next block are both free */
+	else{                               
 		delete((Node*)(NEXT_BLKP(bp)));
 		delete((Node*)PREV_BLKP(bp));          //Now deleting both prev and next free blocks from list
 		size += get_size(HDRP(PREV_BLKP(bp))) + get_size(FTRP(NEXT_BLKP(bp)));
 		put(HDRP(PREV_BLKP(bp)), pack(size, 1, 0));
 		put(FTRP(NEXT_BLKP(bp)), pack(size, 1, 0));
+	    put(HDRP(NEXT_BLKP(bp)), pack(get_size(HDRP(NEXT_BLKP(bp))), 0, 1 ));
 		bp = PREV_BLKP(bp);
 		push(bp);
 	}
@@ -347,14 +399,21 @@ static void *coalesce(void *bp){
 }
 
 /* Functions Reference Textbook Computer Systems A Programmer's Perspective */
+/* 
+ * find_fits function first based on the size find the segList where we should place the block,
+ * Then if it finds enough size in that segList then return that block bp to acllocate or 
+ * else check all the bigger block after it if there is place to allocate and return bp
+ * else if nothing is found return NULL so extendheap can be called by find_fits callee. 
+ */
 static void *find_fits(size_t asize){
 	/* First-fit search */
 	void *bp;
 	int segListno = addtosegList(asize);
 	getsegListhead(segListno);
 	Node* node = segList[segListno];
+	/* While to check all segList bigger than the seglist based on size */
 	while (segListno <=8){ 
-		node = segList[segListno];        //In last commit I wasn't updating my node again in while loop.
+		node = segList[segListno];       
 		while (node != NULL) {
 			bp = node;   
 			if (asize <= get_size(HDRP(bp))){
@@ -369,6 +428,12 @@ static void *find_fits(size_t asize){
 }
 
 /* Functions Reference Textbook Computer Systems A Programmer's Perspective */
+/* This is called after find_fit return the correct bp to allocate memory, 
+ * This function allocate the user required memory and if there is still place left more than 32 bytes,
+ * it splits the block and mark the left out as free and add to segList else allocate complete block and remove
+ * it from segList find_fits might be returning very big block from a bigger segList and then it is very
+ * important to split and add the splitted free block to correct segList based on new size.
+ */
 
 static void place(void *bp, size_t asize){
 	size_t csize = get_size(HDRP(bp));
@@ -376,41 +441,38 @@ static void place(void *bp, size_t asize){
 		delete((Node*)bp);					
 		put(HDRP(bp), pack(asize, 1, 1));
 		bp = NEXT_BLKP(bp);
-		put(HDRP(bp), pack(csize-asize, 1, 0));		//Updating the splitted free block header and footer 
+		/* Updating the splitted free block header and footer and adding it to segList */
+		put(HDRP(bp), pack(csize-asize, 1, 0));	
 		put(FTRP(bp), pack(csize-asize, 1, 0));
 		push(bp);
 	}
 	else{
+
 		put(HDRP(bp), pack(csize, 1, 1)); 
-		/*
-		 *There was error when was allocating freed block and prev_alloc wasn't 
-		 *updating in the heap, then had to add this line.
-		 */
 		put(HDRP(NEXT_BLKP(bp)), pack(get_size(HDRP(NEXT_BLKP(bp))), 1, get_alloc(HDRP(NEXT_BLKP(bp))))); 
 		delete((Node*)bp);
 	}
 }
 /*
-   Need a different place for realloc call, was get segfault on some traces. 
+   Need a different place for realloc call, was get segfault on some traces. Similar to place but 
    Realloc changes already allocated blocks and thus there is no need to delete from 
-   any free list which caused seg fault.
+   any free list which caused seg fault. 
    */
 static void place_realloc(void *bp, size_t asize){
 	size_t csize = get_size(HDRP(bp));
 	int prev_alloc = get_prev_alloc(HDRP(bp));
 	if((csize - asize) >= (2*DSIZE)){
-		put(HDRP(bp), pack(asize, prev_alloc, 1));
+		put(HDRP(bp), pack(asize, prev_alloc, 1)); 	/* packing with prev_alloc as the previous block here can be allocated or free */
 		bp = NEXT_BLKP(bp);
-		put(HDRP(bp), pack(csize-asize, prev_alloc, 0));
-		put(FTRP(bp), pack(csize-asize, prev_alloc, 0));
-		push(bp);
+		put(HDRP(bp), pack(csize-asize, 1, 0));
+		put(FTRP(bp), pack(csize-asize, 1, 0));
+		coalesce(bp);
+		//push(bp);
 	}
 	else{
 		put(HDRP(bp), pack(csize, prev_alloc, 1));
 	}
 }
-
-
 
 /* rounds up to the nearest multiple of ALIGNMENT */
 static size_t align(size_t x)
@@ -423,6 +485,10 @@ static size_t align(size_t x)
  */
 
 /* Functions Reference Textbook Computer Systems A Programmer's Perspective */
+/* mm_init function initialises out heap with starting alignment of 16 bytes and 
+ * make prologue and epilogue and call extend heap for initializing heap.
+ * Also, set all the segList and the head global pointer as NULL
+ */
 bool mm_init(void)
 {  
 	/* IMPLEMENT THIS */
@@ -435,7 +501,7 @@ bool mm_init(void)
 	if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
 		return false;
 	put(heap_listp, 0);
-	put(heap_listp + (1*WSIZE), pack(DSIZE, 1, 1));
+	put(heap_listp + (1*WSIZE), pack(DSIZE, 0, 1));
 	put(heap_listp + (2*WSIZE), pack(DSIZE, 1, 1));
 	put(heap_listp + (3*WSIZE), pack(0, 1, 1));
 	heap_listp += (2*WSIZE); //This make heap_listp points at the first header
@@ -448,28 +514,37 @@ bool mm_init(void)
 /*
  * malloc
  */
+/*
+ * This functions takes the size of memory to be allocated and if size is return NULL
+ * if size not zero it finds the size to align 16 bytes. If less than 16 bytes then
+ * size for allocation is 32 bytes which is minimum required size keeping header and 
+ * footer in mind. If size is bigger than DSIZE then call the align function to find 
+ * 16 bytes aligned size. It then calls find_fits to find place to allocate memory in heap
+ * and return bp if find_fits return NULL then extend_heap is called to increase size 
+ * of heap and return bp.
+ */
 void* malloc(size_t size)
 {
 	size_t asize;
 	size_t extendsize;
 	void *bp;
-
-
+	mm_checkheap(__LINE__);
 	if(size == 0)
 		return NULL;
-
 
 	if(size <= DSIZE)
 		asize = 2*DSIZE;
 	else{
-		/* Changed method to find asize as now we don't want footer in allocated blocks. 
-		 *Calling align functino with WSIZE added in the paramter to size which will return the required 
-		 *aligned address to make use of only headers in allocated blocks
-		 */
+
+	/* Changed method to find asize as now we don't want footer in allocated blocks. 
+	 * Calling align functino with WSIZE added in the paramter to size which will return the required 
+	 * aligned address to make use of only headers in allocated blocks
+	 */
 		asize =align(size+WSIZE); 
 	}
 	if((bp = find_fits(asize)) != NULL){
 		place(bp, asize);
+		//mm_checkheap(__LINE__);
 		return bp;
 	}
 
@@ -477,6 +552,7 @@ void* malloc(size_t size)
 	if((bp = extended_heap(extendsize/WSIZE)) == NULL)
 		return NULL;
 	place(bp, asize);
+    //mm_checkheap(__LINE__);
 	return bp;
 }
 
@@ -484,6 +560,12 @@ void* malloc(size_t size)
  * free
  */
 /* Functions Reference Textbook Computer Systems A Programmer's Perspective */
+/*
+ * free function unallocate a allocated block. The block that has to be unallocated is passed 
+ * as parameter. Find the prev_alloc bit, set the allocation bit in Header and Footer now since
+ * free to 0 and setting the next block prev_alloc bit as 0. Then calling coalesce to merge 
+ * any consecutive free block and add accordingly to the segList.
+ */
 void free(void* ptr)
 {
 	/* IMPLEMENT THIS */
@@ -495,40 +577,53 @@ void free(void* ptr)
 	put(FTRP(ptr), pack(size, prev_alloc, 0));
 	put(HDRP(NEXT_BLKP(ptr)), pack(get_size(HDRP(NEXT_BLKP(ptr))), 0, get_alloc(HDRP(NEXT_BLKP(ptr)))));
 	coalesce(ptr);
+	//mm_checkheap(__LINE__);
 }
 
 /*
  * realloc
  */
+
+/* 
+ * realloc function takes five cases:
+ * 1) if argument passed as ptr to realloc is NULL return malloc 
+ * 2) if the user in realloc passed 0 as new required size then free the allocated oldptr
+ * 3) If the new size is same as the current size of oldptr then return the same oldptr as no change required
+ * 4) If new size is less than the size of currently allocated block, then find the new 16 bit aligned size and called 
+ *    place realloc and return the oldptr as the block ptr didn't change
+ * 5) If none of the above case then we call malloc and use memcpy to copy data to new ptr returned by malloc
+ *    and free position where data is currently held
+ */
 void* realloc(void* oldptr, size_t size)
 {
 	/* IMPLEMENT THIS */
 	size_t asize;
+	/* Case 1 */
 	if(oldptr == NULL){         /* This call is equivalent to malloc */
 		return malloc(size);
 	}
+	/* Case 2 */
 	if(size == 0){
 		free(oldptr);
 		return NULL;
 	}
+	/* Case 3 */
 	size_t old_size = get_size(HDRP(oldptr)) - 2*WSIZE;   // Storing the initial ptr size
 	if(size == old_size){
 		return oldptr;
 	}
+	/* Case 4 */
 	else if (size<old_size){             // If new size is less than the old size
 
 		if(size <= DSIZE)
 			asize = 2*DSIZE;
 		else
-			asize = align(size+WSIZE); //+ DSIZE;
+			asize = align(size+WSIZE); 
 
 		place_realloc(oldptr, asize);
 		return oldptr;
 	}
-	/*
-	 * If none of the above case calling malloc and copying the current data to 
-	 * the new position and freeing the position where the data is currently held
-	 */
+	/* Case 5 */
 	void *newPointer = malloc(size);        
 	if(newPointer){
 		memcpy(newPointer, oldptr, size);            
@@ -553,7 +648,6 @@ void* calloc(size_t nmemb, size_t size)
 	}
 	return ptr;
 }
-
 
 /*
  * Returns whether the pointer is in the heap.
@@ -588,10 +682,78 @@ bool mm_checkheap(int lineno)
 	 * make sure I'm adding blocks correctly to heap
 	 */
 	void *bp;
-	printf("\n\nHeap: \n");
+
+	/* Printing the complete Heap */
+	//dbg_printf("\n\nHeap: \n");
 	for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BLKP(bp)){
-		printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \t\tPrevA: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+	/*	dbg_printf("\n H: %p \tbp: %p \t F: ",HDRP(bp), bp);
+			if(get_alloc(HDRP(bp)) == 1)
+				dbg_printf("N/A \t\t\tS: %lu \tPrevA: %lu \tA: %lu\n", get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+			else
+				dbg_printf("%p \t\tS: %lu \tPrevA: %lu \tA: %lu\n", FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));*/		
+		
+		dbg_assert(get_alloc(HDRP(bp))== get_prev_alloc(HDRP(NEXT_BLKP(bp))));
+		
+		/* To check coealesce work correctly */
+		if(get_alloc(HDRP(bp)) == 0){
+			dbg_assert(get_alloc(HDRP(NEXT_BLKP(bp))) == 1);
+			dbg_assert(get_prev_alloc(HDRP(bp)) == 1);
+		}
+		
 	}
+	/* For Epilogue */
+	/*dbg_printf("\n H: %p \tbp: %p \t F: ",HDRP(bp), bp);
+			if(get_alloc(HDRP(bp)) == 1)
+				dbg_printf("N/A \t\t\tS: %lu \tPrevA: %lu \tA: %lu\n", get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+			else
+				dbg_printf("%p \t\tS: %lu \tPrevA: %lu \tA: %lu\n", FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+*/
+
+    /* Printing the All the Segregated List */
+	dbg_printf("\n\nSegregated Linked List: \n");
+	int listno = 0;
+	while(listno <= 8){
+		getsegListhead(listno);
+		Node* node = (head);
+		dbg_printf("\n\n List: %d\n", listno);
+		while(node != NULL){
+			bp = node;
+			dbg_printf("\n H: %p \tbp: %p \t F: ",HDRP(bp), bp);
+			if(get_alloc(HDRP(bp)) == 1)
+				dbg_printf("N/A \t\tS: %lu \tPrevA: %lu \tA: %lu\n", get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+			else
+				dbg_printf("%p \t\tS: %lu \tPrevA: %lu \tA: %lu\n", FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+			node = node->next;
+			dbg_assert(get_alloc(bp) == 0);
+			dbg_assert(get(HDRP(bp)) == get(FTRP(bp)));
+		}
+		listno++;
+	}
+
+	/* To check assert conditions in segList */
+	listno = 0;
+	while(listno <= 8){
+		getsegListhead(listno);
+		Node* node = head;
+		while(node != NULL){
+			bp = node;
+
+			//assert(get_alloc(HDRP(bp)) == 0);
+
+			size_t size = get_size(HDRP(bp));
+			int correctsegList = addtosegList(size);
+
+			dbg_assert(correctsegList == listno);
+
+			dbg_assert(get(HDRP(node)) == get(FTRP(node)));
+
+			node = node->next;
+		}
+		listno++;
+	}
+
+
+	/* Seg List before footer optimization
 	printf("\n\nSegregated Linked List: \n");
 	int listno = 0;
 	while(listno <= 8){
@@ -600,33 +762,19 @@ bool mm_checkheap(int lineno)
 		printf("\n\n List: %d\n", listno);
 		while(node != NULL){
 			bp = node;
-			printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \t\tPrevA: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+			dbg_printf("\n H: %p \tbp: %p \t f: %p \tS: %lu \t\tPrevA: %lu \tA: %lu\n",HDRP(bp), bp, FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
 			node = node->next;
 		}
 		listno++;
-	}
+	} */
 
-	listno = 0;
-	while(listno <= 8){
-		getsegListhead(listno);
-		Node* node = head;
-		while(node != NULL){
-			bp = node;
-			assert(get_alloc(HDRP(bp)) == 0);
-			size_t size = get_size(HDRP(bp));
-			int correctsegList = addtosegList(size);
-			assert(correctsegList == listno);
-			node = node->next;
-		}
-		listno++;
-	}
 
 	/* Used this when footer optimization wasn't there */
 	/*
 	   for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BLKP(bp)){
-	   assert(get(HDRP(bp)) == get(FTRP(bp)));
+	   dbg_assert(get(HDRP(bp)) == get(FTRP(bp)));
 	   }
-	   */                                 
+	*/                                 
 #endif /* DEBUG */
 	return true;
 }
