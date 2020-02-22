@@ -18,7 +18,7 @@
  * Basic Structure
  *
  * Allocated block				Free block    			Segregated List(Keep free blocks: SL0, SL1, ... is the head and points to first node for each segList for different size)
- *| ----------------|		|-------------------|      [SL0]  [SL1]   [SL2]  [SL3]  [SL4]  [SL5]  [SL6]  [SL7]   [SL8]  
+ *|-----------------|		|-------------------|      [SL0]  [SL1]   [SL2]  [SL3]  [SL4]  [SL5]  [SL6]  [SL7]   [SL8]  
  *|				   	|		|	   Header		|      	 |		|		|	   |	  |		 |		|	   |	   |
  *|	     Header		|		|___________________|		[ ]	   [ ]     [ ]	  [ ]    [ ]    NULL   [ ]	  [ ]     NULL
  *|-----------------|		|					|		 |		|		|      |      |				|	   |
@@ -528,7 +528,7 @@ void* malloc(size_t size)
 	size_t asize;
 	size_t extendsize;
 	void *bp;
-	mm_checkheap(__LINE__);
+	//mm_checkheap(__LINE__);
 	if(size == 0)
 		return NULL;
 
@@ -577,7 +577,6 @@ void free(void* ptr)
 	put(FTRP(ptr), pack(size, prev_alloc, 0));
 	put(HDRP(NEXT_BLKP(ptr)), pack(get_size(HDRP(NEXT_BLKP(ptr))), 0, get_alloc(HDRP(NEXT_BLKP(ptr)))));
 	coalesce(ptr);
-	//mm_checkheap(__LINE__);
 }
 
 /*
@@ -684,30 +683,34 @@ bool mm_checkheap(int lineno)
 	void *bp;
 
 	/* Printing the complete Heap */
-	//dbg_printf("\n\nHeap: \n");
-	for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BLKP(bp)){
-	/*	dbg_printf("\n H: %p \tbp: %p \t F: ",HDRP(bp), bp);
-			if(get_alloc(HDRP(bp)) == 1)
-				dbg_printf("N/A \t\t\tS: %lu \tPrevA: %lu \tA: %lu\n", get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
-			else
-				dbg_printf("%p \t\tS: %lu \tPrevA: %lu \tA: %lu\n", FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));*/		
-		
-		dbg_assert(get_alloc(HDRP(bp))== get_prev_alloc(HDRP(NEXT_BLKP(bp))));
-		
-		/* To check coealesce work correctly */
-		if(get_alloc(HDRP(bp)) == 0){
-			dbg_assert(get_alloc(HDRP(NEXT_BLKP(bp))) == 1);
-			dbg_assert(get_prev_alloc(HDRP(bp)) == 1);
-		}
-		
-	}
-	/* For Epilogue */
-	/*dbg_printf("\n H: %p \tbp: %p \t F: ",HDRP(bp), bp);
+	dbg_printf("\n\nHeap: \n");		
+	/* For Prologue */
+	dbg_printf("\n H: %p \tbp: %p \t F: %p \t\tS: %lu \tPrevA: %lu \tA: %lu\n",HDRP(heap_listp), heap_listp, FTRP(heap_listp), get_size(HDRP(heap_listp)), get_prev_alloc(HDRP(heap_listp)), get_alloc(HDRP(heap_listp)));
+	for(bp = heap_listp+DSIZE ; get_size(HDRP(bp))>0; bp = NEXT_BLKP(bp)){
+		dbg_printf("\n H: %p \tbp: %p \t F: ",HDRP(bp), bp);
 			if(get_alloc(HDRP(bp)) == 1)
 				dbg_printf("N/A \t\t\tS: %lu \tPrevA: %lu \tA: %lu\n", get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
 			else
 				dbg_printf("%p \t\tS: %lu \tPrevA: %lu \tA: %lu\n", FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
-*/
+	
+		/* to check if prev alloc bit in Header of next block is correctly set */
+		dbg_assert(get_alloc(HDRP(bp))== get_prev_alloc(HDRP(NEXT_BLKP(bp))));
+		//dbg_assert(aligned(bp));
+		/* To check coealesce work correctly */
+		if(get_alloc(HDRP(bp)) == 0){
+			dbg_assert(get_alloc(HDRP(NEXT_BLKP(bp))) == 1);
+			dbg_assert(get_prev_alloc(HDRP(bp)) == 1);
+			
+		}
+		
+	}
+	/* For Epilogue */
+	dbg_printf("\n H: %p \tbp: %p \t F: ",HDRP(bp), bp);
+			if(get_alloc(HDRP(bp)) == 1)
+				dbg_printf("N/A \t\t\tS: %lu \tPrevA: %lu \tA: %lu\n", get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+			else
+				dbg_printf("%p \t\tS: %lu \tPrevA: %lu \tA: %lu\n", FTRP(bp), get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
+
 
     /* Printing the All the Segregated List */
 	dbg_printf("\n\nSegregated Linked List: \n");
