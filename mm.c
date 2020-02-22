@@ -684,9 +684,7 @@ bool mm_checkheap(int lineno)
 
 	/* Printing the complete Heap */
 	dbg_printf("\n\nHeap: \n");		
-	/* For Prologue */
-	dbg_printf("\n H: %p \tbp: %p \t F: %p \t\tS: %lu \tPrevA: %lu \tA: %lu\n",HDRP(heap_listp), heap_listp, FTRP(heap_listp), get_size(HDRP(heap_listp)), get_prev_alloc(HDRP(heap_listp)), get_alloc(HDRP(heap_listp)));
-	for(bp = heap_listp+DSIZE ; get_size(HDRP(bp))>0; bp = NEXT_BLKP(bp)){
+	for(bp = heap_listp ; get_size(HDRP(bp))>0; bp = NEXT_BLKP(bp)){
 		dbg_printf("\n H: %p \tbp: %p \t F: ",HDRP(bp), bp);
 			if(get_alloc(HDRP(bp)) == 1)
 				dbg_printf("N/A \t\t\tS: %lu \tPrevA: %lu \tA: %lu\n", get_size(HDRP(bp)), get_prev_alloc(HDRP(bp)), get_alloc(HDRP(bp)));
@@ -695,7 +693,6 @@ bool mm_checkheap(int lineno)
 	
 		/* to check if prev alloc bit in Header of next block is correctly set */
 		dbg_assert(get_alloc(HDRP(bp))== get_prev_alloc(HDRP(NEXT_BLKP(bp))));
-		//dbg_assert(aligned(bp));
 		/* To check coealesce work correctly */
 		if(get_alloc(HDRP(bp)) == 0){
 			dbg_assert(get_alloc(HDRP(NEXT_BLKP(bp))) == 1);
