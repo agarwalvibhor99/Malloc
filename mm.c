@@ -17,21 +17,23 @@
  * 
  * Basic Structure
  *
- * Allocated block				Free block    			Segregated List(Keep free blocks: SL0, SL1, ... is the head and points to first node for each segList for different size)
+ * Allocated block		Free block    		Segregated List(Stores free blocks: SL0, SL1, ...SL8 
+ *							is the head and points to first node for each segList for different size)
+ *
  *|-----------------|		|-------------------|      [SL0]  [SL1]   [SL2]  [SL3]  [SL4]  [SL5]  [SL6]  [SL7]   [SL8]  
- *|				   	|		|	   Header		|      	 |		|		|	   |	  |		 |		|	   |	   |
- *|	     Header		|		|___________________|		[ ]	   [ ]     [ ]	  [ ]    [ ]    NULL   [ ]	  [ ]     NULL
- *|-----------------|		|					|		 |		|		|      |      |				|	   |
- *|					|		|		Prev		|		[ ]	   [ ]	   NULL   NULL   NULL		   NULL	  NULL
- *|					|		|___________________|		 |		|
- *|    				|		|					|		[ ]	   NULL
- *|	    Payload		|		|		Next		|        |
- *|					|		|___________________|       NULL
- *|					|		|					|			
- *|					|		|	   Footer	 	|
+ *|  	       	    | 		|	 Header     |        |	    |	    |	   |	  |      | 	|      |       |
+ *|      Header     |		|___________________|	    [ ]	   [ ]     [ ]	  [ ]    [ ]    NULL   [ ]    [ ]     NULL
+ *|-----------------|		|        	    |	     |	    |	    |      |      |		|      |
+ *|		    |		|        Prev	    |	    [ ]	   [ ]	   NULL   NULL   NULL	       NULL   NULL
+ *|		    |		|___________________|	     |	    |
+ *|    		    |		|		    |	    [ ]	   NULL
+ *|      Payload    |		|	 Next	    |        |
+ *|		    |		|___________________|       NULL
+ *|		    |		|		    |			
+ *|	            |		|       Footer	    |
  *|_________________|		|___________________|
- * No footer in   			Footer are there in
- * Allocated blocks         free blocks
+ * No footer in   	        Footer are there in
+ * Allocated blocks             free blocks
  *
  * SEGREGATED LIST for FREE BLOCKS : 8 SEGLIST based on size
  * SegList is pointer array of Struct Node which has two pointers prev and next. 
